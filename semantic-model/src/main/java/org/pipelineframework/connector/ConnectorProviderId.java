@@ -24,7 +24,11 @@ public record ConnectorProviderId(String value) implements Comparable<ConnectorP
         return value.equals("tpf") || value.startsWith("tpf.");
     }
 
-    static String require(String value, String label) {
+    /**
+     * Validates the shared lowercase dotted-name vocabulary used by provider and
+     * connector contract identifiers across separately loaded TPF artifacts.
+     */
+    public static String require(String value, String label) {
         Objects.requireNonNull(value, label + " must not be null");
         if (!PATTERN.matcher(value).matches()) {
             throw new IllegalArgumentException(label + " must be a lowercase dotted name: " + value);
