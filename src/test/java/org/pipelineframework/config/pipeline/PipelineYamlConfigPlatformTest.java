@@ -3,6 +3,7 @@ package org.pipelineframework.config.pipeline;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.pipelineframework.config.boundary.PipelineCheckpointConfig;
 import org.pipelineframework.config.boundary.PipelineInputBoundaryConfig;
@@ -46,6 +47,25 @@ class PipelineYamlConfigPlatformTest {
             List.of(),
             List.of());
         assertEquals("COMPUTE", config.platform());
+    }
+
+    @Test
+    void snapshotsListsAndKeepsRootDefinitionNonNull() {
+        List<PipelineYamlStep> steps = new ArrayList<>();
+        List<PipelineYamlAspect> aspects = new ArrayList<>();
+        PipelineYamlConfig config = new PipelineYamlConfig("org.example", "LOCAL", null, steps, aspects);
+        steps.add(new PipelineYamlStep("Later", "com.example.Input", "com.example.Output"));
+        aspects.add(new PipelineYamlAspect("trace", true, "GLOBAL", "BEFORE_STEP", null));
+        assertEquals(List.of(), config.stepDefinitions().get("$root"));
+        assertEquals(List.of(), config.aspects());
+
+        PipelineYamlConfig missing = new PipelineYamlConfig("org.example", "LOCAL", null, null, null);
+        assertEquals(List.of(), missing.stepDefinitions().get("$root"));
+
+        List<String> targets = new ArrayList<>(List.of("First"));
+        PipelineYamlAspect aspect = new PipelineYamlAspect("trace", true, "STEPS", "BEFORE_STEP", targets);
+        targets.add("Second");
+        assertEquals(List.of("First"), aspect.targetSteps());
     }
 
     @Test

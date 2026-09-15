@@ -28,6 +28,9 @@ public record PipelineYamlCallable(
         using = ConnectorBindingName.of(using).value();
         operation = requireDottedName(operation, "callable operation");
         kind = Objects.requireNonNull(kind, "callable operation kind must not be null");
+        if (!ConnectorOperationKind.COMMAND.equals(kind) && !ConnectorOperationKind.QUERY.equals(kind)) {
+            throw new IllegalArgumentException("callable operation kind must be COMMAND or QUERY: " + kind);
+        }
         if (operationVersion < 1) {
             throw new IllegalArgumentException("callable operation version must be positive");
         }

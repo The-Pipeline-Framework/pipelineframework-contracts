@@ -62,6 +62,84 @@ class PipelineTemplateTypeModelTest {
     }
 
     @Test
+    void freezesNestedProviderOptions() {
+        List<Object> endpoints = new java.util.ArrayList<>(List.of("primary"));
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("routing", Map.of("endpoints", endpoints));
+        PipelineTemplateTypeModel model = new PipelineTemplateTypeModel(
+            Map.of(), Map.of(), Map.of("json", options));
+        endpoints.add("secondary");
+
+        Map<?, ?> routing = (Map<?, ?>) model.representationProviderConfiguration("json")
+            .orElseThrow().get("routing");
+        assertEquals(List.of("primary"), routing.get("endpoints"));
+        assertThrows(UnsupportedOperationException.class,
+            () -> ((List<Object>) routing.get("endpoints")).add("third"));
+    }
+
+    @Test
+    void canonicalizesLegacyMapKeysAndRejectsUnsupportedOnes() {
+        PipelineTemplateField mapField = PipelineTemplateTypeMappings.normalizeLegacyField(
+            new PipelineTemplateField("entries", "Map<Integer, String>", null));
+        PipelineTemplateTypeModel model = new LegacyPipelineTemplateTypeModelAdapter().adapt(
+            Map.of("Lookup", new PipelineTemplateMessage("Lookup", List.of(mapField), null)), Map.of());
+        PipelineTemplateTypeDefinition.RecordType lookup =
+            (PipelineTemplateTypeDefinition.RecordType) model.definitions().get("Lookup");
+        PipelineTemplateTypeReference.MapType map =
+            (PipelineTemplateTypeReference.MapType) lookup.fields().getFirst().type();
+        assertEquals("int32", map.keyType().name());
+        assertEquals(new PipelineTemplateTypeReference.Scalar("string"), map.valueType());
+
+        PipelineTemplateField unsupported = PipelineTemplateTypeMappings.normalizeLegacyField(
+            new PipelineTemplateField("entries", "Map<Float, String>", null));
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () ->
+            new LegacyPipelineTemplateTypeModelAdapter().adapt(
+                Map.of("Lookup", new PipelineTemplateMessage("Lookup", List.of(unsupported), null)), Map.of()));
+        assertTrue(exception.getMessage().contains("unsupported keyType 'Float'"));
+    }
+
+    @Test
+    void clearsMessageReferencesWhenResolvedAsScalar() {
+        PipelineTemplateField message = new PipelineTemplateField(
+            1, "value", "Order", "message", "Order", null, null, null, null,
+            false, false, false, null, null, null, null, null);
+        assertEquals("Order", message.withCanonicalType("message", null).messageRef());
+        assertEquals(null, message.withCanonicalType("string", null).messageRef());
+    }
+
+    @Test
+    void rejectsConflictingWrapperBounds() {
+        assertThrows(IllegalArgumentException.class, () -> new PipelineTemplateWrapperConstraints(
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+            Optional.of(java.math.BigDecimal.ONE), Optional.of(java.math.BigDecimal.TWO),
+            Optional.empty(), Optional.empty()));
+        assertThrows(IllegalArgumentException.class, () -> new PipelineTemplateWrapperConstraints(
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+            Optional.empty(), Optional.empty(),
+            Optional.of(java.math.BigDecimal.ONE), Optional.of(java.math.BigDecimal.TWO)));
+    }
+
+    @Test
+    void snapshotsTemplateAspectConfigAndStepFields() {
+        List<Object> flags = new java.util.ArrayList<>(List.of("on"));
+        PipelineTemplateAspect aspect = new PipelineTemplateAspect(
+            true, "GLOBAL", "BEFORE_STEP", 0, Map.of("flags", flags));
+        List<PipelineTemplateField> fields = new java.util.ArrayList<>(
+            List.of(new PipelineTemplateField("id", "String", null)));
+        PipelineTemplateStep step = new PipelineTemplateStep(
+            "Read", "ONE_TO_ONE", "Input", fields, "Output", fields);
+        flags.add("off");
+        fields.clear();
+
+        assertEquals(List.of("on"), aspect.config().get("flags"));
+        assertThrows(UnsupportedOperationException.class,
+            () -> ((List<Object>) aspect.config().get("flags")).add("later"));
+        assertEquals(1, step.inputFields().size());
+        assertEquals(1, step.outputFields().size());
+        assertThrows(UnsupportedOperationException.class, () -> step.inputFields().clear());
+    }
+
+    @Test
     void resolvesAliasesAndPreservesNominalAndUnionAssignability() {
         PipelineTemplateTypeReference.Named accepted = new PipelineTemplateTypeReference.Named("Accepted");
         PipelineTemplateTypeModel model = new PipelineTemplateTypeModel(Map.of(

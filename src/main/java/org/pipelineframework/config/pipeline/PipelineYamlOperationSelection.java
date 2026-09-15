@@ -23,6 +23,6 @@ public record PipelineYamlOperationSelection(
             throw new IllegalArgumentException("connector operation version must be positive");
         }
         using = ConnectorBindingName.of(using).value();
-        policy = policy == null ? Map.of() : Map.copyOf(policy);
+        policy = org.pipelineframework.config.ImmutableConfigValues.copy(policy);
     }
 }

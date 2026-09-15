@@ -16,6 +16,6 @@ public record PipelineYamlAwaitTransport(String type, Map<String, Object> config
         if (type == null || type.isBlank()) {
             throw new IllegalArgumentException("await.transport.type must be defined");
         }
-        config = config == null ? Map.of() : Map.copyOf(config);
+        config = org.pipelineframework.config.ImmutableConfigValues.copy(config);
     }
 }

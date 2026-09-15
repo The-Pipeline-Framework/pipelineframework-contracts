@@ -61,7 +61,7 @@ public record PipelineObjectPublishConfig(
                 }
             }
         }
-        location = location == null ? Map.of() : Map.copyOf(location);
+        location = org.pipelineframework.config.ImmutableConfigValues.copy(location);
         naming = naming == null ? PipelineObjectNamingConfig.defaults() : naming;
         payload = payload == null ? PipelineObjectPublishPayloadConfig.defaults() : payload;
         grouping = grouping == null ? PipelineObjectPublishGroupingConfig.defaults() : grouping;

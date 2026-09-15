@@ -58,6 +58,8 @@ public record PipelineTemplateStep(
     Optional<String> deferredOperationOutputTypeName
 ) {
     public PipelineTemplateStep {
+        inputFields = inputFields == null ? null : List.copyOf(inputFields);
+        outputFields = outputFields == null ? null : List.copyOf(outputFields);
         accepts = accepts == null ? List.of() : List.copyOf(accepts);
         pipelineReference = Objects.requireNonNull(pipelineReference, "pipelineReference must not be null")
             .map(String::trim)

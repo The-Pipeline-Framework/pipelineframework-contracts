@@ -49,7 +49,9 @@ final class LegacyPipelineTemplateTypeModelAdapter {
     private PipelineTemplateTypeReference legacyReference(PipelineTemplateField field) {
         if (field.isMap()) {
             return new PipelineTemplateTypeReference.MapType(
-                new PipelineTemplateTypeReference.Scalar(field.keyType()), legacyReference(field.valueType()));
+                new PipelineTemplateTypeReference.Scalar(
+                    PipelineTemplateTypeMappings.canonicalLegacyMapKey(field.keyType(), field.name())),
+                legacyReference(field.valueType()));
         }
         if (field.messageRef() != null && !field.messageRef().isBlank()) {
             return new PipelineTemplateTypeReference.Named(field.messageRef());
@@ -58,8 +60,8 @@ final class LegacyPipelineTemplateTypeModelAdapter {
     }
 
     private PipelineTemplateTypeReference legacyReference(String type) {
-        return PipelineTemplateTypeMappings.isV3ScalarType(type)
-            ? new PipelineTemplateTypeReference.Scalar(type)
-            : new PipelineTemplateTypeReference.Named(type);
+        return PipelineTemplateTypeMappings.canonicalLegacyScalar(type)
+            .<PipelineTemplateTypeReference>map(PipelineTemplateTypeReference.Scalar::new)
+            .orElseGet(() -> new PipelineTemplateTypeReference.Named(type));
     }
 }

@@ -61,4 +61,15 @@ class PipelineTemplateStepExecutionTest {
         assertNull(execution.protocol());
         assertTrue(execution.isRemote());
     }
+
+    @Test
+    void modeNormalizationIgnoresDefaultLocale() {
+        java.util.Locale previous = java.util.Locale.getDefault();
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("tr-TR"));
+            assertEquals("DIRECT", new PipelineTemplateStepExecution("direct", null, null, null, null).mode());
+        } finally {
+            java.util.Locale.setDefault(previous);
+        }
+    }
 }

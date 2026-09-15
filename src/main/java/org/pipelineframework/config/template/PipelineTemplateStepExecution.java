@@ -51,6 +51,6 @@ public record PipelineTemplateStepExecution(
 
     private static String defaultMode(String value) {
         String normalized = normalize(value);
-        return normalized == null ? "LOCAL" : normalized.toUpperCase();
+        return normalized == null ? "LOCAL" : normalized.toUpperCase(java.util.Locale.ROOT);
     }
 }

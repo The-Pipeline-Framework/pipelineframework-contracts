@@ -19,6 +19,7 @@ package org.pipelineframework.config.template;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -298,7 +299,7 @@ final class PipelineTemplateTypeMappings {
         String declaredType = field.type();
         String canonicalType;
         String messageRef = null;
-        String javaType = declaredType;
+        String javaType;
         String protoType = field.protoType();
         if (isLegacyListType(declaredType)) {
             String innerType = listInnerType(declaredType);
@@ -447,19 +448,27 @@ final class PipelineTemplateTypeMappings {
         };
     }
 
-    /**
-     * Resolve a legacy type token to the Java type name used in generated or runtime code.
-     *
-     * @param token a legacy type token (for example `"String"`, `"Integer"`, or a message reference like `"MyMessage"`)
-     * @param keyType true if the token is being used as a map key (map keys that reference messages become `String`)
-     * @return the Java type name for the given token; for message tokens returns `String` when used as a map key, otherwise returns the token itself
-     */
-    private static String javaTypeForSimpleToken(String token, boolean keyType) {
-        String canonical = canonicalForLegacySimple(token);
-        if ("message".equals(canonical)) {
-            return keyType ? "String" : token;
+    static String canonicalLegacyMapKey(String token, String fieldName) {
+        String canonical = canonicalLegacyScalar(token).orElseThrow(() -> new IllegalStateException(
+            "Map field '" + fieldName + "' declares unsupported keyType '" + token + "'"));
+        if (!MAP_KEY_CANONICAL_TYPES.contains(canonical)) {
+            throw new IllegalStateException(
+                "Map field '" + fieldName + "' declares unsupported keyType '" + token + "'");
         }
-        return JAVA_TYPES.getOrDefault(canonical, "String");
+        return canonical;
+    }
+
+    static Optional<String> canonicalLegacyScalar(String token) {
+        if (isV3ScalarType(token)) {
+            return Optional.of(token);
+        }
+        return switch (token == null ? "" : token) {
+            case "String", "Boolean", "Integer", "AtomicInteger", "Long", "AtomicLong",
+                 "Float", "Double", "BigDecimal", "UUID", "LocalDateTime", "OffsetDateTime",
+                 "ZonedDateTime", "Instant", "LocalDate", "Duration", "Period", "Currency",
+                 "URI", "URL", "Path", "File", "byte[]" -> Optional.of(canonicalForLegacySimple(token));
+            default -> Optional.empty();
+        };
     }
 
     /**

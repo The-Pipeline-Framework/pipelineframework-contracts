@@ -61,7 +61,9 @@ public record PipelineYamlJpaQuery(
             if (value == null) {
                 throw new IllegalArgumentException("query jpa.where." + key + " must not be null");
             }
-            normalized.put(key.trim(), value);
+            if (normalized.putIfAbsent(key.trim(), value) != null) {
+                throw new IllegalArgumentException("query jpa.where has duplicate normalized key: " + key.trim());
+            }
         }
         return Collections.unmodifiableMap(new LinkedHashMap<>(normalized));
     }
@@ -83,7 +85,9 @@ public record PipelineYamlJpaQuery(
             if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException("query jpa." + field + "." + key + " must not be blank");
             }
-            normalized.put(key.trim(), value.trim());
+            if (normalized.putIfAbsent(key.trim(), value.trim()) != null) {
+                throw new IllegalArgumentException("query jpa." + field + " has duplicate normalized key: " + key.trim());
+            }
         }
         return Collections.unmodifiableMap(new LinkedHashMap<>(normalized));
     }

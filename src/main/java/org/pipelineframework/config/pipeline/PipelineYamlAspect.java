@@ -34,4 +34,7 @@ public record PipelineYamlAspect(
     String position,
     List<String> targetSteps
 ) {
+    public PipelineYamlAspect {
+        targetSteps = targetSteps == null ? null : List.copyOf(targetSteps);
+    }
 }

@@ -70,6 +70,8 @@ public record PipelineYamlConfig(
             }
         }
         platform = normalizedPlatform;
+        steps = steps == null ? List.of() : List.copyOf(steps);
+        aspects = aspects == null ? List.of() : List.copyOf(aspects);
         validateMap(sources, "sources");
         validateMap(queries, "queries");
         validateMap(publish, "publish");

@@ -235,7 +235,7 @@ public final class PipelineTemplateTypeModel {
             if (key == null || key.isBlank() || options == null) {
                 throw new IllegalStateException("Invalid representation provider configuration");
             }
-            if (normalized.putIfAbsent(key, Map.copyOf(new LinkedHashMap<>(options))) != null) {
+            if (normalized.putIfAbsent(key, org.pipelineframework.config.ImmutableConfigValues.copy(options)) != null) {
                 throw new IllegalStateException("Duplicate representation provider configuration '" + key + "'");
             }
         });

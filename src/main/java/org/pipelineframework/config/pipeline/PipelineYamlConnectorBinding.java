@@ -20,6 +20,6 @@ public record PipelineYamlConnectorBinding(
         if (version < 1) {
             throw new IllegalArgumentException("connector binding '" + name + "' version must be positive");
         }
-        config = config == null ? Map.of() : Map.copyOf(config);
+        config = org.pipelineframework.config.ImmutableConfigValues.copy(config);
     }
 }

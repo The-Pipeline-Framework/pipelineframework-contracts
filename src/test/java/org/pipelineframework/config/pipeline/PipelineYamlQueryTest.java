@@ -128,6 +128,22 @@ class PipelineYamlQueryTest {
     }
 
     @Test
+    void rejectsJpaKeysThatCollideAfterTrimming() {
+        Map<String, PipelineYamlJpaPredicate> where = new java.util.LinkedHashMap<>();
+        where.put("id", PipelineYamlJpaPredicate.equalTo("input.id"));
+        where.put(" id ", PipelineYamlJpaPredicate.equalTo("input.otherId"));
+        assertThrows(IllegalArgumentException.class, () -> new PipelineYamlJpaQuery(
+            "com.example.Entity", where, Map.of(), Map.of(), null, "single"));
+
+        Map<String, String> projection = new java.util.LinkedHashMap<>();
+        projection.put("id", "id");
+        projection.put(" id ", "otherId");
+        assertThrows(IllegalArgumentException.class, () -> new PipelineYamlJpaQuery(
+            "com.example.Entity", Map.of("id", PipelineYamlJpaPredicate.equalTo("input.id")),
+            projection, Map.of(), null, "single"));
+    }
+
+    @Test
     void validatesJpaPredicateOrderAndLimitConfig() {
         PipelineYamlJpaQuery jpa = new PipelineYamlJpaQuery(
             "com.example.CustomerRiskEntity",

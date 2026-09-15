@@ -34,4 +34,7 @@ public record PipelineTemplateAspect(
     int order,
     Map<String, Object> config
 ) {
+    public PipelineTemplateAspect {
+        config = config == null ? null : org.pipelineframework.config.ImmutableConfigValues.copy(config);
+    }
 }

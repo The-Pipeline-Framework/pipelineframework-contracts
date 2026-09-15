@@ -52,7 +52,7 @@ public record PipelineObjectSourceConfig(
                 }
             }
         }
-        location = location == null ? Map.of() : Map.copyOf(location);
+        location = org.pipelineframework.config.ImmutableConfigValues.copy(location);
         filter = filter == null ? PipelineObjectFilterConfig.defaults() : filter;
         poll = poll == null ? PipelineObjectPollConfig.defaults() : poll;
         identity = identity == null ? PipelineObjectIdentityConfig.defaults() : identity;

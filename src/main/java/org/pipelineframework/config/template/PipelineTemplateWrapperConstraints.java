@@ -50,6 +50,12 @@ public record PipelineTemplateWrapperConstraints(
         minimumExclusive = canonical(optional(minimumExclusive));
         maximum = canonical(optional(maximum));
         maximumExclusive = canonical(optional(maximumExclusive));
+        if (minimum.isPresent() && minimumExclusive.isPresent()) {
+            throw new IllegalArgumentException("minimum and minimumExclusive are mutually exclusive");
+        }
+        if (maximum.isPresent() && maximumExclusive.isPresent()) {
+            throw new IllegalArgumentException("maximum and maximumExclusive are mutually exclusive");
+        }
         allowedValues = canonicalAllowedValues(allowedValues);
     }
 

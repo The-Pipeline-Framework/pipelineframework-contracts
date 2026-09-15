@@ -68,7 +68,7 @@ public record PipelineYamlStep(
         idempotencyKeyFields = idempotencyKeyFields == null
             ? java.util.List.of()
             : java.util.List.copyOf(idempotencyKeyFields);
-        commandConfig = commandConfig == null ? java.util.Map.of() : java.util.Map.copyOf(commandConfig);
+        commandConfig = org.pipelineframework.config.ImmutableConfigValues.copy(commandConfig);
         queryCapture = queryCapture == null ? new PipelineYamlQueryCapture(java.util.List.of()) : queryCapture;
         accepts = accepts == null ? java.util.List.of() : java.util.List.copyOf(accepts);
         operationSelection = java.util.Objects.requireNonNull(operationSelection, "operation selection must not be null");
