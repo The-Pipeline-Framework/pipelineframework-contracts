@@ -32,6 +32,12 @@ jobs:
         run: |
           VERSION="$(./mvnw -q help:evaluate -Dexpression=project.version -DforceStdout -Dmaven.repo.local="$GITHUB_WORKSPACE/.m2/repository")"
           case "$VERSION" in *-SNAPSHOT) ;; *) exit 1;; esac
+      - name: Refuse incomplete runtime-core staging
+        run: |
+          if test -f runtime-core/pom.xml && ! test -f runtime-core/PUBLICATION_READY; then
+            echo "runtime-core is staged but not ready for publication" >&2
+            exit 1
+          fi
       - name: Verify and publish
         run: ./mvnw -B clean deploy -U --no-transfer-progress -Dgpg.skip=false -Dmaven.repo.local="$GITHUB_WORKSPACE/.m2/repository"
         env:
