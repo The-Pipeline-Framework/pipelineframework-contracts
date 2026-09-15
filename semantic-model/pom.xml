@@ -2,13 +2,20 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.pipelineframework</groupId>
-    <artifactId>pipelineframework-contracts-parent</artifactId>
-    <version>26.9.4-SNAPSHOT</version>
-    <packaging>pom</packaging>
+    <parent>
+        <groupId>org.pipelineframework</groupId>
+        <artifactId>pipelineframework-contracts-parent</artifactId>
+        <version>26.9.4-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
 
-    <name>The Pipeline Framework Contracts</name>
-    <description>Framework-neutral semantic and serialization contracts</description>
+    <groupId>org.pipelineframework</groupId>
+    <artifactId>pipelineframework-semantic-model</artifactId>
+    <version>26.9.4-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>The Pipeline Framework Semantic Model</name>
+    <description>Stable framework-neutral semantic contracts shared by compiler and runtime</description>
     <url>https://pipelineframework.org/</url>
     <licenses>
         <license>
@@ -31,11 +38,6 @@
         <tag>HEAD</tag>
     </scm>
 
-    <modules>
-        <module>semantic-model</module>
-        <module>runtime-serialization</module>
-    </modules>
-
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
@@ -43,43 +45,46 @@
         <gpg.skip>true</gpg.skip>
     </properties>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter</artifactId>
-                <version>${junit.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-annotations</artifactId>
-                <version>2.22</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-core</artifactId>
-                <version>2.22.2</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <version>2.22.2</version>
-            </dependency>
-            <dependency>
-                <groupId>com.google.protobuf</groupId>
-                <artifactId>protobuf-java</artifactId>
-                <version>4.35.0</version>
-            </dependency>
-            <dependency>
-                <groupId>com.google.protobuf</groupId>
-                <artifactId>protobuf-java-util</artifactId>
-                <version>4.35.0</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.6.2</version>
+                <executions>
+                    <execution>
+                        <id>enforce-portable-semantic-model-dependencies</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>true</searchTransitive>
+                                    <excludes>
+                                        <exclude>org.pipelineframework:*</exclude>
+                                        <exclude>io.quarkus:*</exclude>
+                                        <exclude>jakarta.enterprise:*</exclude>
+                                        <exclude>jakarta.inject:*</exclude>
+                                        <exclude>org.springframework:*</exclude>
+                                        <exclude>org.springframework.*:*</exclude>
+                                        <exclude>com.fasterxml.jackson.*:*</exclude>
+                                        <exclude>com.google.protobuf:*</exclude>
+                                        <exclude>io.smallrye.reactive:*</exclude>
+                                    </excludes>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
