@@ -33,6 +33,7 @@
 
     <modules>
         <module>api</module>
+        <module>runtime-api</module>
         <module>semantic-model</module>
         <module>runtime-serialization</module>
     </modules>
