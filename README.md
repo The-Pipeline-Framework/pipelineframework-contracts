@@ -6,4 +6,4 @@ The semantic model has no production dependency on other TPF artifacts or a fram
 
 The `pipelineframework-contracts-parent` POM is published only so the two library POMs remain resolvable; applications do not depend on it directly.
 
-During cutover, the monorepo remains the publication owner until this repository has published and verified the same Maven coordinate. Consumers should use a released artifact rather than a second source copy; the two repositories must never publish the same version concurrently.
+This repository is the sole publisher of these contract coordinates. During consumer cutover, the monorepo temporarily retains non-deployable source mirrors in its reactor; those mirrors must be removed once consumers resolve the published artifacts. The two repositories must never deploy the same coordinate concurrently.
