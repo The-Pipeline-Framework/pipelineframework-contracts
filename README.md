@@ -6,4 +6,6 @@ The API owns portable authored compiler discovery annotations, including `@Pipel
 
 The `pipelineframework-contracts-parent` POM is published only so the library POMs remain resolvable; applications do not depend on it directly.
 
+`pipelineframework-runtime-core` is being assembled in this reactor as a non-deployable source staging module. Its public coordinate remains published by the monorepo until the full source and tests are transferred, the monorepo stops deploying it, and the contracts publisher is deliberately enabled. Do not publish this reactor from a staging commit; the snapshot workflow rejects incomplete staging.
+
 This repository is the sole publisher of these contract coordinates. During consumer cutover, the monorepo temporarily retains non-deployable source mirrors in its reactor; those mirrors must be removed once consumers resolve the published artifacts. The two repositories must never deploy the same coordinate concurrently.
