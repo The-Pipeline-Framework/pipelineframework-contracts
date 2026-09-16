@@ -70,7 +70,8 @@ public record CommandRequest<I>(
         return occurrenceId;
     }
 
-    static String newAttemptId() {
+    /** Creates a unique identifier for a new command execution attempt. */
+    public static String newAttemptId() {
         return "attempt-" + java.util.UUID.randomUUID();
     }
 }
