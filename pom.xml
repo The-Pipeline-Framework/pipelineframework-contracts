@@ -38,6 +38,7 @@
         <module>runtime-core</module>
         <module>runtime-serialization</module>
         <module>runtime-protocol</module>
+        <module>runtime-spi</module>
     </modules>
 
     <properties>

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>org.pipelineframework</groupId>
         <artifactId>pipelineframework-contracts-parent</artifactId>
@@ -8,9 +9,9 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>pipelineframework-runtime-protocol</artifactId>
-    <name>The Pipeline Framework Runtime Protocol</name>
-    <description>Shared protobuf contracts for customer runtime and worker boundaries</description>
+    <artifactId>pipelineframework-runtime-spi</artifactId>
+    <name>The Pipeline Framework Runtime SPI</name>
+    <description>Framework-neutral reactive extension contracts implemented by runtime providers and customer integrations</description>
 
     <properties>
         <maven.deploy.skip>false</maven.deploy.skip>
@@ -19,12 +20,29 @@
     <dependencies>
         <dependency>
             <groupId>org.pipelineframework</groupId>
+            <artifactId>pipelineframework-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.pipelineframework</groupId>
             <artifactId>pipelineframework-runtime-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>io.smallrye.reactive</groupId>
+            <artifactId>mutiny</artifactId>
+            <version>3.3.0</version>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -37,15 +55,14 @@
                 <version>3.6.2</version>
                 <executions>
                     <execution>
-                        <id>enforce-runtime-protocol-dependencies</id>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
+                        <id>enforce-portable-runtime-spi-dependencies</id>
+                        <goals><goal>enforce</goal></goals>
                         <configuration>
                             <rules>
                                 <bannedDependencies>
                                     <searchTransitive>true</searchTransitive>
                                     <excludes>
+                                        <exclude>org.pipelineframework:*</exclude>
                                         <exclude>io.quarkus:*</exclude>
                                         <exclude>jakarta.enterprise:*</exclude>
                                         <exclude>jakarta.inject:*</exclude>
@@ -54,11 +71,11 @@
                                         <exclude>org.jboss.weld:*</exclude>
                                         <exclude>org.springframework:*</exclude>
                                         <exclude>org.springframework.*:*</exclude>
+                                        <exclude>com.google.protobuf:*</exclude>
                                         <exclude>com.fasterxml.jackson.*:*</exclude>
-                                        <exclude>io.smallrye.reactive:*</exclude>
-                                        <exclude>org.pipelineframework:*</exclude>
                                     </excludes>
                                     <includes>
+                                        <include>org.pipelineframework:pipelineframework-api</include>
                                         <include>org.pipelineframework:pipelineframework-runtime-core</include>
                                         <include>org.pipelineframework:pipelineframework-semantic-model</include>
                                     </includes>
@@ -73,10 +90,5 @@
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
         </plugins>
-        <resources>
-            <resource>
-                <directory>src/main/proto</directory>
-            </resource>
-        </resources>
     </build>
 </project>
