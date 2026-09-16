@@ -14,7 +14,7 @@
     <description>Framework-neutral reactive extension contracts implemented by runtime providers and customer integrations</description>
 
     <properties>
-        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.deploy.skip>false</maven.deploy.skip>
     </properties>
 
     <dependencies>

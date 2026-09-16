@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 export const publishedArtifacts = [
   { artifactId: 'pipelineframework-runtime-core', mirrorPath: 'framework/runtime-core/pom.xml' },
   { artifactId: 'pipelineframework-runtime-protocol', mirrorPath: 'framework/runtime-protocol/pom.xml' },
+  { artifactId: 'pipelineframework-runtime-spi', mirrorPath: 'framework/runtime-spi/pom.xml' },
 ];
 
 const repository = 'The-Pipeline-Framework/pipelineframework';

@@ -5,6 +5,7 @@ import { assertMonorepoPublishersStopped } from './require-monorepo-artifact-pub
 const artifacts = [
   { artifactId: 'pipelineframework-runtime-core' },
   { artifactId: 'pipelineframework-runtime-protocol' },
+  { artifactId: 'pipelineframework-runtime-spi' },
 ];
 const manifest = () => ({
   publicArtifacts: [],
@@ -17,7 +18,7 @@ test('accepts externally owned, non-deployable source mirrors', () => {
   assert.doesNotThrow(() => assertMonorepoPublishersStopped(manifest(), mirrors(), excludedFramework, artifacts));
 });
 
-test('accepts removal of either monorepo source mirror', () => {
+test('accepts removal of any monorepo source mirror', () => {
   for (const removed of artifacts) {
     const sourceMirrors = mirrors();
     delete sourceMirrors[removed.artifactId];
@@ -27,20 +28,32 @@ test('accepts removal of either monorepo source mirror', () => {
 });
 
 test('rejects a public artifact', () => {
-  const value = manifest();
-  value.publicArtifacts.push({ artifactId: artifacts[0].artifactId });
-  assert.throws(() => assertMonorepoPublishersStopped(value, mirrors(), excludedFramework, artifacts), /still declares pipelineframework-runtime-core as a public artifact/);
+  for (const { artifactId } of artifacts) {
+    const value = manifest();
+    value.publicArtifacts.push({ artifactId });
+    assert.throws(() => assertMonorepoPublishersStopped(value, mirrors(), excludedFramework, artifacts), new RegExp(`still declares ${artifactId} as a public artifact`));
+  }
 });
 
 test('rejects missing external ownership', () => {
-  assert.throws(() => assertMonorepoPublishersStopped({ publicArtifacts: [], externalArtifacts: [] }, mirrors(), excludedFramework, artifacts), /does not declare pipelineframework-runtime-core as externally owned/);
+  for (const { artifactId } of artifacts) {
+    const value = manifest();
+    value.externalArtifacts = value.externalArtifacts.filter((entry) => entry.artifactId !== artifactId);
+    assert.throws(() => assertMonorepoPublishersStopped(value, mirrors(), excludedFramework, artifacts), new RegExp(`does not declare ${artifactId} as externally owned`));
+  }
 });
 
 test('rejects a deployable mirror', () => {
-  assert.throws(() => assertMonorepoPublishersStopped(manifest(), mirrors('false'), excludedFramework, artifacts), /source mirror remains deployable/);
+  for (const { artifactId } of artifacts) {
+    const sourceMirrors = mirrors();
+    sourceMirrors[artifactId] = sourceMirrors[artifactId].replace('>true<', '>false<');
+    assert.throws(() => assertMonorepoPublishersStopped(manifest(), sourceMirrors, excludedFramework, artifacts), new RegExp(`${artifactId} source mirror remains deployable`));
+  }
 });
 
 test('rejects a mirror included in the Central bundle', () => {
-  const framework = excludedFramework.replace('<excludeArtifact>pipelineframework-runtime-protocol</excludeArtifact>', '');
-  assert.throws(() => assertMonorepoPublishersStopped(manifest(), mirrors(), framework, artifacts), /Central bundle does not exclude the pipelineframework-runtime-protocol mirror/);
+  for (const { artifactId } of artifacts) {
+    const framework = excludedFramework.replace(`<excludeArtifact>${artifactId}</excludeArtifact>`, '');
+    assert.throws(() => assertMonorepoPublishersStopped(manifest(), mirrors(), framework, artifacts), new RegExp(`Central bundle does not exclude the ${artifactId} mirror`));
+  }
 });
