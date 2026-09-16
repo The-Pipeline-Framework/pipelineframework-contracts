@@ -2,10 +2,15 @@ package org.pipelineframework.connector;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Host-internal creation seam for binding-owned provider instances. */
-interface ConnectorProviderInstanceFactory {
+/**
+ * Host-internal creation seam for binding-owned provider instances.
+ *
+ * <p>The type is public because host implementations can live in a separate artifact and classloader. It is not a
+ * provider-author extension point.</p>
+ */
+@FunctionalInterface
+public interface ConnectorProviderInstanceFactory {
     ConnectorProviderLease create(ConnectorProvider<?> prototype);
 
     static ConnectorProviderInstanceFactory plainJava() {
@@ -27,35 +32,5 @@ interface ConnectorProviderInstanceFactory {
                     "failed to create binding-owned connector provider " + type.getName(), failure);
             }
         };
-    }
-}
-
-/** One host-owned provider instance and its container cleanup action. */
-final class ConnectorProviderLease {
-    private final ConnectorProvider<?> provider;
-    private final Runnable release;
-    private final AtomicBoolean released = new AtomicBoolean();
-
-    private ConnectorProviderLease(ConnectorProvider<?> provider, Runnable release) {
-        this.provider = Objects.requireNonNull(provider, "connector provider must not be null");
-        this.release = Objects.requireNonNull(release, "connector provider release action must not be null");
-    }
-
-    static ConnectorProviderLease of(ConnectorProvider<?> provider) {
-        return new ConnectorProviderLease(provider, () -> { });
-    }
-
-    static ConnectorProviderLease of(ConnectorProvider<?> provider, Runnable release) {
-        return new ConnectorProviderLease(provider, release);
-    }
-
-    ConnectorProvider<?> provider() {
-        return provider;
-    }
-
-    void release() {
-        if (released.compareAndSet(false, true)) {
-            release.run();
-        }
     }
 }

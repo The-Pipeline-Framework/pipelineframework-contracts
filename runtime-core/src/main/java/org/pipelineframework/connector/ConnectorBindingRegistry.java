@@ -72,7 +72,8 @@ public final class ConnectorBindingRegistry {
         return fromProviders(definitions, providers, ConnectorProviderInstanceFactory.plainJava(), true);
     }
 
-    static ConnectorBindingRegistry fromProviders(
+    /** Defines live bindings with a host-specific provider instance factory. */
+    public static ConnectorBindingRegistry fromProviders(
         Collection<ConnectorBindingDefinition> definitions,
         Collection<? extends ConnectorProvider<?>> providers,
         ConnectorProviderInstanceFactory instanceFactory
@@ -80,7 +81,8 @@ public final class ConnectorBindingRegistry {
         return fromProviders(definitions, providers, instanceFactory, false);
     }
 
-    static ConnectorBindingRegistry fromProvidersAllowingUnavailable(
+    /** Retains unavailable bindings while using a host-specific provider instance factory. */
+    public static ConnectorBindingRegistry fromProvidersAllowingUnavailable(
         Collection<ConnectorBindingDefinition> definitions,
         Collection<? extends ConnectorProvider<?>> providers,
         ConnectorProviderInstanceFactory instanceFactory
