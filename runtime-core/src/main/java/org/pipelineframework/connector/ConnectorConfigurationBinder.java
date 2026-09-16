@@ -59,6 +59,7 @@ public final class ConnectorConfigurationBinder {
         try {
             Class<?>[] parameterTypes = Arrays.stream(components).map(RecordComponent::getType).toArray(Class<?>[]::new);
             Constructor<T> constructor = schema.configType().getDeclaredConstructor(parameterTypes);
+            makeAccessible(constructor);
             return constructor.newInstance(arguments);
         } catch (ReflectiveOperationException exception) {
             throw new ConnectorConfigurationException(
@@ -258,11 +259,18 @@ public final class ConnectorConfigurationBinder {
         try {
             Class<?>[] parameterTypes = Arrays.stream(components).map(RecordComponent::getType).toArray(Class<?>[]::new);
             Constructor<?> constructor = type.getDeclaredConstructor(parameterTypes);
+            makeAccessible(constructor);
             return constructor.newInstance(arguments);
         } catch (ReflectiveOperationException exception) {
             throw new ConnectorConfigurationException(
                 subject + " configuration schema " + schema.descriptor().id() + " v" + schema.descriptor().version()
                     + " could not construct " + type.getName() + ": " + exception.getMessage());
+        }
+    }
+
+    private static void makeAccessible(Constructor<?> constructor) throws IllegalAccessException {
+        if (!constructor.canAccess(null) && !constructor.trySetAccessible()) {
+            throw new IllegalAccessException("record canonical constructor is not accessible: " + constructor);
         }
     }
 
