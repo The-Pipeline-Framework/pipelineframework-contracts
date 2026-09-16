@@ -20,7 +20,7 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
-      - name: Verify runtime-core publisher handoff gate
-        run: node --test scripts/require-monorepo-runtime-core-publisher-stop.test.mjs
+      - name: Verify staged artifact publisher handoff gate
+        run: node --test scripts/require-monorepo-artifact-publishers-stop.test.mjs
       - name: Verify the canonical contract artifact
         run: ./mvnw -B clean verify -Dmaven.repo.local="$GITHUB_WORKSPACE/.m2/repository" --no-transfer-progress
