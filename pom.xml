@@ -37,6 +37,7 @@
         <module>semantic-model</module>
         <module>runtime-core</module>
         <module>runtime-serialization</module>
+        <module>runtime-protocol</module>
     </modules>
 
     <properties>
