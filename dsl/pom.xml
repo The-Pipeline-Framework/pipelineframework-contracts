@@ -29,10 +29,6 @@
     <name>The Pipeline Framework DSL</name>
     <description>Framework-neutral authored pipeline DSL and loader contracts</description>
 
-    <properties>
-        <maven.deploy.skip>true</maven.deploy.skip>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.pipelineframework</groupId>

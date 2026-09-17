@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const publishedArtifacts = [
+  { artifactId: 'pipelineframework-dsl', mirrorPath: 'framework/dsl/pom.xml' },
+  { artifactId: 'representation-provider-api', mirrorPath: 'framework/representation-provider-api/pom.xml' },
   { artifactId: 'pipelineframework-runtime-core', mirrorPath: 'framework/runtime-core/pom.xml' },
   { artifactId: 'pipelineframework-runtime-protocol', mirrorPath: 'framework/runtime-protocol/pom.xml' },
   { artifactId: 'pipelineframework-runtime-spi', mirrorPath: 'framework/runtime-spi/pom.xml' },

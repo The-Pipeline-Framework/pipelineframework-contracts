@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assertMonorepoPublishersStopped } from './require-monorepo-artifact-publishers-stop.mjs';
+import {
+  assertMonorepoPublishersStopped,
+  publishedArtifacts,
+} from './require-monorepo-artifact-publishers-stop.mjs';
 
-const artifacts = [
-  { artifactId: 'pipelineframework-runtime-core' },
-  { artifactId: 'pipelineframework-runtime-protocol' },
-  { artifactId: 'pipelineframework-runtime-spi' },
-];
+const artifacts = publishedArtifacts;
 const manifest = () => ({
   publicArtifacts: [],
   externalArtifacts: artifacts.map(({ artifactId }) => ({ artifactId, ownership: 'external' })),
