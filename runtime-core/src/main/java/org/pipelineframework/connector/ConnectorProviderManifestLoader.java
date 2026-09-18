@@ -2,9 +2,12 @@ package org.pipelineframework.connector;
 
 import java.io.IOException;
 import java.net.URL;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Objects;
@@ -35,21 +38,41 @@ public final class ConnectorProviderManifestLoader {
         }
         return new ClassLoader(anchored) {
             @Override
+            public Class<?> loadClass(String name) throws ClassNotFoundException {
+                try {
+                    return context.loadClass(name);
+                } catch (ClassNotFoundException unavailableFromContext) {
+                    return anchored.loadClass(name);
+                }
+            }
+
+            @Override
             public Enumeration<URL> getResources(String name) throws IOException {
                 LinkedHashMap<String, URL> resources = new LinkedHashMap<>();
                 Enumeration<URL> contextual = context.getResources(name);
                 while (contextual.hasMoreElements()) {
                     URL resource = contextual.nextElement();
-                    resources.putIfAbsent(resource.toExternalForm(), resource);
+                    resources.putIfAbsent(resourceIdentity(name, resource), resource);
                 }
                 Enumeration<URL> processor = anchored.getResources(name);
                 while (processor.hasMoreElements()) {
                     URL resource = processor.nextElement();
-                    resources.putIfAbsent(resource.toExternalForm(), resource);
+                    resources.putIfAbsent(resourceIdentity(name, resource), resource);
                 }
                 return java.util.Collections.enumeration(resources.values());
             }
         };
+    }
+
+    private static String resourceIdentity(String name, URL resource) throws IOException {
+        if (!RESOURCE_PATH.equals(name)) {
+            return resource.toExternalForm();
+        }
+        try (var input = resource.openStream()) {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(input.readAllBytes()));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 digest is unavailable", exception);
+        }
     }
 
     public static ConnectorProviderManifestCatalog load(ClassLoader classLoader) {
