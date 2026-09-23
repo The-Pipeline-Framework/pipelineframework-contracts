@@ -36,13 +36,35 @@ public record ExecutionRecord<I, R>(
     int failedStepIndex,
     Optional<String> failedCommandId,
     Optional<String> redriveTargetCommandId,
-    Optional<String> redriveReason
+    Optional<String> redriveReason,
+    Optional<PagedExecutionState> pagingState
 ) {
+    public ExecutionRecord(
+        String tenantId, String executionId, String executionKey, String pipelineId,
+        String contractVersion, String releaseVersion, ExecutionResultShape resultShape,
+        ExecutionStatus status, long version, int currentStepIndex, int attempt,
+        String leaseOwner, long leaseExpiresEpochMs, long nextDueEpochMs,
+        String lastTransitionKey, I inputPayload, String awaitUnitId, R resultPayload,
+        String errorCode, String errorMessage, long createdAtEpochMs, long updatedAtEpochMs,
+        long ttlEpochS, long firstCircuitDeferredAtEpochMs, int circuitDeferralCount,
+        String circuitIdentity, ExecutionRedriveIntent redriveIntent, int failedStepIndex,
+        Optional<String> failedCommandId, Optional<String> redriveTargetCommandId,
+        Optional<String> redriveReason
+    ) {
+        this(tenantId, executionId, executionKey, pipelineId, contractVersion, releaseVersion,
+            resultShape, status, version, currentStepIndex, attempt, leaseOwner,
+            leaseExpiresEpochMs, nextDueEpochMs, lastTransitionKey, inputPayload, awaitUnitId,
+            resultPayload, errorCode, errorMessage, createdAtEpochMs, updatedAtEpochMs, ttlEpochS,
+            firstCircuitDeferredAtEpochMs, circuitDeferralCount, circuitIdentity, redriveIntent,
+            failedStepIndex, failedCommandId, redriveTargetCommandId, redriveReason, Optional.empty());
+    }
+
     public ExecutionRecord {
         redriveIntent = redriveIntent == null ? ExecutionRedriveIntent.REPLAY : redriveIntent;
         failedCommandId = Optional.ofNullable(failedCommandId).orElseGet(Optional::empty);
         redriveTargetCommandId = Optional.ofNullable(redriveTargetCommandId).orElseGet(Optional::empty);
         redriveReason = Optional.ofNullable(redriveReason).orElseGet(Optional::empty);
+        pagingState = Optional.ofNullable(pagingState).orElseGet(Optional::empty);
         if (redriveIntent == ExecutionRedriveIntent.RETRY_FAILED_COMMAND) {
             if (failedStepIndex < 0) {
                 throw new IllegalArgumentException(
@@ -177,6 +199,40 @@ public record ExecutionRecord<I, R>(
             lastTransitionKey, inputPayload, awaitUnitId, resultPayload, errorCode, errorMessage,
             createdAtEpochMs, updatedAtEpochMs, ttlEpochS, firstCircuitDeferredAtEpochMs,
             circuitDeferralCount, circuitIdentity, ExecutionRedriveIntent.REPLAY, -1, Optional.empty());
+    }
+
+    /** Compatibility constructor for records persisted before circuit deferral metadata existed. */
+    public ExecutionRecord(
+        String tenantId,
+        String executionId,
+        String executionKey,
+        String pipelineId,
+        String contractVersion,
+        String releaseVersion,
+        ExecutionResultShape resultShape,
+        ExecutionStatus status,
+        long version,
+        int currentStepIndex,
+        int attempt,
+        String leaseOwner,
+        long leaseExpiresEpochMs,
+        long nextDueEpochMs,
+        String lastTransitionKey,
+        I inputPayload,
+        String awaitUnitId,
+        R resultPayload,
+        String errorCode,
+        String errorMessage,
+        long createdAtEpochMs,
+        long updatedAtEpochMs,
+        long ttlEpochS,
+        Optional<PagedExecutionState> pagingState
+    ) {
+        this(tenantId, executionId, executionKey, pipelineId, contractVersion, releaseVersion, resultShape,
+            status, version, currentStepIndex, attempt, leaseOwner, leaseExpiresEpochMs, nextDueEpochMs,
+            lastTransitionKey, inputPayload, awaitUnitId, resultPayload, errorCode, errorMessage,
+            createdAtEpochMs, updatedAtEpochMs, ttlEpochS, 0L, 0, "",
+            ExecutionRedriveIntent.REPLAY, -1, Optional.empty(), Optional.empty(), Optional.empty(), pagingState);
     }
 
     /** Compatibility constructor for records persisted before circuit deferral metadata existed. */

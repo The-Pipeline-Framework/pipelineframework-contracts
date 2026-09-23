@@ -172,6 +172,29 @@ public interface ExecutionStateStore {
         Object resultPayload,
         long nowEpochMs);
 
+    /** Whether this store can fence and persist source-page advancement. */
+    default boolean supportsPagedProgress() {
+        return false;
+    }
+
+    /**
+     * Commits one normally completed, non-exhausted page and queues its successor.
+     *
+     * <p>The write must match {@code expectedVersion}; the version fence makes duplicate page
+     * completion harmless. The stored source input remains unchanged. Only {@code nextPage}
+     * becomes the new replay start boundary.</p>
+     */
+    default Uni<Optional<ExecutionRecord<Object, Object>>> advancePage(
+        String tenantId,
+        String executionId,
+        long expectedVersion,
+        String transitionKey,
+        PagedExecutionState nextPage,
+        long nowEpochMs) {
+        return Uni.createFrom().failure(new UnsupportedOperationException(
+            "Execution state store '" + providerName() + "' does not support paged progress"));
+    }
+
     /**
      * Marks an execution as durably waiting on an external await interaction.
      *

@@ -2,6 +2,7 @@ package org.pipelineframework.orchestrator;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Portable transition result exchanged by remote runtime transports.
@@ -19,11 +20,25 @@ public record TransitionWireResult(
     TransitionAwaitSuspension awaitSuspension,
     TransitionFailureEnvelope failure,
     boolean terminalOutputPublished,
-    boolean terminalInputPassthrough
+    boolean terminalInputPassthrough,
+    Optional<PagedTransitionCompletion> pageCompletion
 ) {
+    public TransitionWireResult(
+        TransitionWorkerOutcome outcome,
+        List<SerializedTransitionPayload> outputPayloads,
+        TransitionAwaitSuspension awaitSuspension,
+        TransitionFailureEnvelope failure,
+        boolean terminalOutputPublished,
+        boolean terminalInputPassthrough
+    ) {
+        this(outcome, outputPayloads, awaitSuspension, failure, terminalOutputPublished,
+            terminalInputPassthrough, Optional.empty());
+    }
+
     public TransitionWireResult {
         Objects.requireNonNull(outcome, "TransitionWireResult.outcome must not be null");
         outputPayloads = outputPayloads == null ? List.of() : List.copyOf(outputPayloads);
+        pageCompletion = Optional.ofNullable(pageCompletion).orElseGet(Optional::empty);
         if (outcome == TransitionWorkerOutcome.WAITING_EXTERNAL && awaitSuspension == null) {
             throw new IllegalArgumentException("WAITING_EXTERNAL transition result requires awaitSuspension");
         }
@@ -41,6 +56,9 @@ public record TransitionWireResult(
         }
         if (outcome != TransitionWorkerOutcome.COMPLETED && terminalInputPassthrough) {
             throw new IllegalArgumentException("Only COMPLETED transition results may retain terminal input");
+        }
+        if (outcome != TransitionWorkerOutcome.COMPLETED && pageCompletion.isPresent()) {
+            throw new IllegalArgumentException("Only COMPLETED transition results may include page completion");
         }
         if (terminalOutputPublished && terminalInputPassthrough) {
             throw new IllegalArgumentException("A terminal transition cannot publish output and retain terminal input");

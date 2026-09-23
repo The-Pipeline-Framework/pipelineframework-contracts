@@ -46,8 +46,22 @@ public record TransitionCommandEnvelope(
     ExecutionRedriveIntent redriveIntent,
     int redriveStepIndex,
     Optional<String> redriveCommandId,
-    Optional<String> redriveReason
+    Optional<String> redriveReason,
+    Optional<PagedTransitionContext> pageContext
 ) {
+    public TransitionCommandEnvelope(
+        String tenantId, String executionId, String pipelineId, String contractVersion,
+        String releaseVersion, int currentStepIndex, int stopBeforeStepIndex, int attempt,
+        ExecutionResultShape resultShape, long executionVersion, String transitionKey,
+        String traceId, String payloadTypeId, String payloadEncoding, String payload,
+        ExecutionRedriveIntent redriveIntent, int redriveStepIndex,
+        Optional<String> redriveCommandId, Optional<String> redriveReason
+    ) {
+        this(tenantId, executionId, pipelineId, contractVersion, releaseVersion, currentStepIndex,
+            stopBeforeStepIndex, attempt, resultShape, executionVersion, transitionKey, traceId,
+            payloadTypeId, payloadEncoding, payload, redriveIntent, redriveStepIndex,
+            redriveCommandId, redriveReason, Optional.empty());
+    }
     public TransitionCommandEnvelope(
         String tenantId,
         String executionId,
@@ -71,7 +85,7 @@ public record TransitionCommandEnvelope(
         this(tenantId, executionId, pipelineId, contractVersion, releaseVersion, currentStepIndex,
             stopBeforeStepIndex, attempt, resultShape, executionVersion, transitionKey, traceId,
             payloadTypeId, payloadEncoding, payload, redriveIntent, redriveStepIndex,
-            redriveCommandId, Optional.empty());
+            redriveCommandId, Optional.empty(), Optional.empty());
     }
     public TransitionCommandEnvelope(
         String tenantId,
@@ -93,7 +107,7 @@ public record TransitionCommandEnvelope(
         this(tenantId, executionId, pipelineId, contractVersion, releaseVersion, currentStepIndex,
             stopBeforeStepIndex, attempt, resultShape, executionVersion, transitionKey, traceId,
             payloadTypeId, payloadEncoding, payload, ExecutionRedriveIntent.REPLAY, -1,
-            Optional.empty(), Optional.empty());
+            Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public TransitionCommandEnvelope(
@@ -129,6 +143,7 @@ public record TransitionCommandEnvelope(
             payload,
             ExecutionRedriveIntent.REPLAY,
             -1,
+            Optional.empty(),
             Optional.empty(),
             Optional.empty());
     }
@@ -166,6 +181,7 @@ public record TransitionCommandEnvelope(
         redriveIntent = redriveIntent == null ? ExecutionRedriveIntent.REPLAY : redriveIntent;
         redriveCommandId = Optional.ofNullable(redriveCommandId).orElseGet(Optional::empty);
         redriveReason = Optional.ofNullable(redriveReason).orElseGet(Optional::empty);
+        pageContext = Optional.ofNullable(pageContext).orElseGet(Optional::empty);
         if (redriveIntent == ExecutionRedriveIntent.RETRY_FAILED_COMMAND && redriveStepIndex < currentStepIndex) {
             throw new IllegalArgumentException(
                 "redriveStepIndex must identify a step at or after currentStepIndex for deliberate Command retry");
@@ -242,7 +258,8 @@ public record TransitionCommandEnvelope(
             command.redriveIntent(),
             command.redriveStepIndex(),
             command.redriveCommandId(),
-            command.redriveReason());
+            command.redriveReason(),
+            command.pageContext());
     }
 
     public TransitionWorkerCommand toCommand(TransitionPayloadCodec codec) {
@@ -260,7 +277,8 @@ public record TransitionCommandEnvelope(
             redriveIntent,
             redriveStepIndex,
             redriveCommandId,
-            redriveReason);
+            redriveReason,
+            pageContext);
     }
 
     public SerializedTransitionPayload serializedPayload() {
