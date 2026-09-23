@@ -24,3 +24,13 @@ jobs:
         run: node --test scripts/require-monorepo-artifact-publishers-stop.test.mjs
       - name: Verify the canonical contract artifact
         run: ./mvnw -B clean verify -Dmaven.repo.local="$GITHUB_WORKSPACE/.m2/repository" --no-transfer-progress
+      - name: Publish contracts coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: contracts-coverage
+          path: |
+            **/target/site/jacoco/**
+            **/target/jacoco.exec
+          if-no-files-found: warn
+          retention-days: 14
