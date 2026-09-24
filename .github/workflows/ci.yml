@@ -20,6 +20,7 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+          cache-path: ${{ github.workspace }}/.m2/repository
       - name: Verify staged artifact publisher handoff gate
         run: node --test scripts/require-monorepo-artifact-publishers-stop.test.mjs
       - name: Verify the canonical contract artifact
