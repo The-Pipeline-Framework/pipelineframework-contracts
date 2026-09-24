@@ -25,6 +25,18 @@ Build with an isolated Maven repository:
 ./mvnw clean verify -Dmaven.repo.local="$PWD/.m2/repository"
 ```
 
+This repository is the sole publisher of these contract coordinates. During consumer cutover, the monorepo temporarily retains non-deployable source mirrors in its reactor; those mirrors must be removed once consumers resolve the published artifacts. The two repositories must never deploy the same coordinate concurrently.
+# Test coverage
+
+`./mvnw clean verify` writes a JaCoCo report for each Maven module under
+`<module>/target/site/jacoco/`. CI publishes those reports and execution data
+as the `contracts-coverage` artifact for inspection.
+
+Coverage is currently informational. No code is excluded from the report, and
+no percentage threshold is enforced until the repository has an observed,
+reviewed baseline. Unit tests continue to run through Surefire during `test`;
+any future integration or end-to-end tests should remain on their existing
+Failsafe lifecycle rather than being folded into Surefire coverage implicitly.
 Use the `central-publishing` profile only to sign and deploy the canonical reactor. For the component map and
 compatibility policy, see the
 [TPF Components and Repositories](https://pipelineframework.org/architecture/components-and-repositories) page.
