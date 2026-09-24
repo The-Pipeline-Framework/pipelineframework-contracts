@@ -17,7 +17,7 @@ Published artifacts:
 
 The published parent POM exists so artifact POMs remain resolvable; applications do not depend on it directly.
 None of these artifacts loads a Quarkus or Spring runtime implementation. Runtime hosts, worker implementations,
-provider clients, resolved credentials, and tenant policy belong in their owning integration repositories.
+Connector/provider implementations, resolved credentials, and tenant policy belong in their owning integration repositories. Deployment wiring also stays outside this repository.
 
 Build with an isolated Maven repository:
 
