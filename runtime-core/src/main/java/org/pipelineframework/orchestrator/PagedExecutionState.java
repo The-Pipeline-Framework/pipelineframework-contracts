@@ -38,6 +38,10 @@ public record PagedExecutionState(
         }
         suspendedCompletion = Objects.requireNonNull(
             suspendedCompletion, "suspendedCompletion must not be null");
+        if (suspendedCompletion.isPresent()) {
+            suspendedCompletion.orElseThrow().validateAgainst(
+                new PagedTransitionContext(pageIndex, sourceIdentity, startCheckpoint, maxRecords));
+        }
     }
 
     public PagedTransitionContext toTransitionContext() {
@@ -51,8 +55,8 @@ public record PagedExecutionState(
     }
 
     public PagedExecutionState withSuspendedCompletion(PagedTransitionCompletion completion) {
-        Objects.requireNonNull(completion, "completion must not be null").validateAgainst(toTransitionContext());
         return new PagedExecutionState(
-            pageIndex, sourceIdentity, startCheckpoint, maxRecords, Optional.of(completion));
+            pageIndex, sourceIdentity, startCheckpoint, maxRecords,
+            Optional.of(Objects.requireNonNull(completion, "completion must not be null")));
     }
 }

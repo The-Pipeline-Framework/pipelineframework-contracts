@@ -38,5 +38,9 @@ public record PagedTransitionContext(
         }
         suspendedCompletion = Objects.requireNonNull(
             suspendedCompletion, "suspendedCompletion must not be null");
+        if (suspendedCompletion.isPresent()) {
+            suspendedCompletion.orElseThrow().validateAgainst(
+                new PagedTransitionContext(pageIndex, sourceIdentity, startCheckpoint, maxRecords));
+        }
     }
 }
