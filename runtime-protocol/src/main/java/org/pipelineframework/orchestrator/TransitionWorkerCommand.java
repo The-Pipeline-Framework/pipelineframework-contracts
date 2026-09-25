@@ -33,8 +33,19 @@ public record TransitionWorkerCommand(
     ExecutionRedriveIntent redriveIntent,
     int redriveStepIndex,
     Optional<String> redriveCommandId,
-    Optional<String> redriveReason
+    Optional<String> redriveReason,
+    Optional<PagedTransitionContext> pageContext
 ) {
+    public TransitionWorkerCommand(
+        String tenantId, String executionId, int currentStepIndex, int stopBeforeStepIndex,
+        int attempt, ExecutionResultShape resultShape, long executionVersion,
+        String transitionKey, Object inputPayload, ExecutionRedriveIntent redriveIntent,
+        int redriveStepIndex, Optional<String> redriveCommandId, Optional<String> redriveReason
+    ) {
+        this(tenantId, executionId, currentStepIndex, stopBeforeStepIndex, attempt, resultShape,
+            executionVersion, transitionKey, inputPayload, redriveIntent, redriveStepIndex,
+            redriveCommandId, redriveReason, Optional.empty());
+    }
     public TransitionWorkerCommand(
         String tenantId,
         String executionId,
@@ -51,7 +62,7 @@ public record TransitionWorkerCommand(
     ) {
         this(tenantId, executionId, currentStepIndex, stopBeforeStepIndex, attempt, resultShape,
             executionVersion, transitionKey, inputPayload, redriveIntent, redriveStepIndex,
-            redriveCommandId, Optional.empty());
+            redriveCommandId, Optional.empty(), Optional.empty());
     }
     public TransitionWorkerCommand(
         String tenantId,
@@ -66,7 +77,7 @@ public record TransitionWorkerCommand(
     ) {
         this(tenantId, executionId, currentStepIndex, stopBeforeStepIndex, attempt, resultShape,
             executionVersion, transitionKey, inputPayload, ExecutionRedriveIntent.REPLAY, -1,
-            Optional.empty(), Optional.empty());
+            Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public TransitionWorkerCommand(
@@ -91,6 +102,7 @@ public record TransitionWorkerCommand(
             inputPayload,
             ExecutionRedriveIntent.REPLAY,
             -1,
+            Optional.empty(),
             Optional.empty(),
             Optional.empty());
     }
@@ -137,7 +149,8 @@ public record TransitionWorkerCommand(
             redriveIntent,
             redriveIntent == ExecutionRedriveIntent.RETRY_FAILED_COMMAND ? currentStepIndex : -1,
             redriveCommandId,
-            redriveReason);
+            redriveReason,
+            Optional.empty());
     }
 
     public TransitionWorkerCommand {
@@ -162,6 +175,7 @@ public record TransitionWorkerCommand(
         redriveIntent = redriveIntent == null ? ExecutionRedriveIntent.REPLAY : redriveIntent;
         redriveCommandId = Optional.ofNullable(redriveCommandId).orElseGet(Optional::empty);
         redriveReason = Optional.ofNullable(redriveReason).orElseGet(Optional::empty);
+        pageContext = Optional.ofNullable(pageContext).orElseGet(Optional::empty);
         if (redriveIntent == ExecutionRedriveIntent.RETRY_FAILED_COMMAND && redriveStepIndex < currentStepIndex) {
             throw new IllegalArgumentException(
                 "redriveStepIndex must identify a step at or after currentStepIndex for deliberate Command retry");

@@ -35,6 +35,7 @@ import org.pipelineframework.config.TransportOverrideResolver;
 import org.pipelineframework.config.boundary.*;
 import org.pipelineframework.config.pipeline.BranchRoutingRules;
 import org.pipelineframework.config.pipeline.PipelineYamlDocumentLoader;
+import org.pipelineframework.config.pipeline.PipelineStepPagingSyntax;
 import org.pipelineframework.connector.ConnectorProviderManifestLoader;
 import org.pipelineframework.materialization.MaterializationAction;
 import org.pipelineframework.materialization.MaterializationPosition;
@@ -1441,7 +1442,8 @@ public class PipelineTemplateConfigLoader {
                 step.callables(),
                 step.modelInputExcludes(),
                 step.callContext(),
-                step.deferredOperationOutputTypeName()));
+                step.deferredOperationOutputTypeName(),
+                step.paging()));
         }
         return resolved;
     }
@@ -1596,7 +1598,8 @@ public class PipelineTemplateConfigLoader {
                 callables,
                 modelInputExcludes,
                 callContext,
-                deferredOperationOutputTypeName));
+                deferredOperationOutputTypeName,
+                PipelineStepPagingSyntax.read(stepMap, name)));
         }
         return stepInfos;
     }

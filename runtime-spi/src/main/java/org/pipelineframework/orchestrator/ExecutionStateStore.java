@@ -1,6 +1,7 @@
 package org.pipelineframework.orchestrator;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -172,6 +173,29 @@ public interface ExecutionStateStore {
         Object resultPayload,
         long nowEpochMs);
 
+    /** Whether this store can fence and persist source-page advancement. */
+    default boolean supportsPagedProgress() {
+        return false;
+    }
+
+    /**
+     * Commits one normally completed, non-exhausted page and queues its successor.
+     *
+     * <p>The write must match {@code expectedVersion}; the version fence makes duplicate page
+     * completion harmless. The stored source input remains unchanged. Only {@code nextPage}
+     * becomes the new replay start boundary.</p>
+     */
+    default Uni<Optional<ExecutionRecord<Object, Object>>> advancePage(
+        String tenantId,
+        String executionId,
+        long expectedVersion,
+        String transitionKey,
+        PagedExecutionState nextPage,
+        long nowEpochMs) {
+        return Uni.createFrom().failure(new UnsupportedOperationException(
+            "Execution state store '" + providerName() + "' does not support paged progress"));
+    }
+
     /**
      * Marks an execution as durably waiting on an external await interaction.
      *
@@ -192,6 +216,29 @@ public interface ExecutionStateStore {
         String awaitUnitId,
         int awaitStepIndex,
         long nowEpochMs);
+
+    /**
+     * Marks an execution waiting while retaining provider-validated completion for its open page.
+     */
+    default Uni<Optional<ExecutionRecord<Object, Object>>> markWaitingExternal(
+        String tenantId,
+        String executionId,
+        long expectedVersion,
+        String transitionKey,
+        String awaitUnitId,
+        int awaitStepIndex,
+        Optional<PagedTransitionCompletion> pageCompletion,
+        long nowEpochMs
+    ) {
+        Objects.requireNonNull(pageCompletion, "pageCompletion must not be null");
+        if (pageCompletion.isPresent()) {
+            return Uni.createFrom().failure(new UnsupportedOperationException(
+                "ExecutionStateStore provider '" + providerName()
+                    + "' does not retain page completion across Await suspension"));
+        }
+        return markWaitingExternal(
+            tenantId, executionId, expectedVersion, transitionKey, awaitUnitId, awaitStepIndex, nowEpochMs);
+    }
 
     /**
      * Stores a completed await payload and makes the execution due for continuation.

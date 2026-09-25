@@ -93,4 +93,28 @@ class TransitionWorkerProtocolContractTest {
             "example.Payload", "JSON", "{}", ExecutionRedriveIntent.RETRY_FAILED_COMMAND, 4,
             Optional.of("command-1"), Optional.empty()));
     }
+
+    @Test
+    void portableCommandPreservesOpaquePageContext() {
+        PagedTransitionContext page = new PagedTransitionContext(
+            3, "snapshot-v1", Optional.of("opaque-start"), 1000);
+        TransitionWorkerCommand command = new TransitionWorkerCommand(
+            "tenant-1", "execution-1", 0, -1, 2, ExecutionResultShape.SINGLE, 9L,
+            "transition-page-3", "decoded", ExecutionRedriveIntent.REPLAY, -1,
+            Optional.empty(), Optional.empty(), Optional.of(page));
+        SerializedTransitionPayload payload = new SerializedTransitionPayload(
+            "example.Input", "JSON", "{\"value\":1}");
+
+        TransitionCommandEnvelope envelope = TransitionCommandEnvelope.from(
+            command, "payments", "contract-v1", "release-v1", "trace-1", payload);
+        TransitionWorkerCommand decoded = envelope.toCommand(new TransitionPayloadCodec() {
+            @Override public String encoding() { return "JSON"; }
+            @Override public SerializedTransitionPayload encode(Object value) { return payload; }
+            @Override public Object decode(SerializedTransitionPayload value) { return "decoded"; }
+        });
+
+        assertEquals(Optional.of(page), envelope.pageContext());
+        assertEquals(Optional.of(page), decoded.pageContext());
+        assertEquals("decoded", decoded.inputPayload());
+    }
 }

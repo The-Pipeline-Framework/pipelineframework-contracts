@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.pipelineframework.config.pipeline.PipelineYamlCallable;
+import org.pipelineframework.config.pipeline.PipelineStepPaging;
 
 /**
  * Step configuration from the pipeline template definition.
@@ -55,7 +56,8 @@ public record PipelineTemplateStep(
     Map<String, PipelineYamlCallable> callables,
     List<String> modelInputExcludes,
     Map<String, String> callContext,
-    Optional<String> deferredOperationOutputTypeName
+    Optional<String> deferredOperationOutputTypeName,
+    Optional<PipelineStepPaging> paging
 ) {
     public PipelineTemplateStep {
         inputFields = inputFields == null ? null : List.copyOf(inputFields);
@@ -72,6 +74,22 @@ public record PipelineTemplateStep(
             deferredOperationOutputTypeName, "deferredOperationOutputTypeName must not be null")
             .map(String::trim)
             .filter(type -> !type.isEmpty());
+        paging = Objects.requireNonNull(paging, "paging must not be null");
+    }
+
+    /** Existing constructor shape for steps that do not declare paging. */
+    public PipelineTemplateStep(
+        String name, String cardinality, String inputTypeName,
+        List<PipelineTemplateField> inputFields, String inboundMapper, String outputTypeName,
+        List<PipelineTemplateField> outputFields, String outboundMapper,
+        PipelineTemplateStepExecution execution, List<String> accepts, boolean terminal,
+        Optional<String> pipelineReference, Map<String, PipelineYamlCallable> callables,
+        List<String> modelInputExcludes, Map<String, String> callContext,
+        Optional<String> deferredOperationOutputTypeName) {
+        this(name, cardinality, inputTypeName, inputFields, inboundMapper, outputTypeName,
+            outputFields, outboundMapper, execution, accepts, terminal, pipelineReference,
+            callables, modelInputExcludes, callContext, deferredOperationOutputTypeName,
+            Optional.empty());
     }
 
     public PipelineTemplateStep(
@@ -133,7 +151,8 @@ public record PipelineTemplateStep(
             callables,
             modelInputExcludes,
             callContext,
-            deferredOperationOutputTypeName);
+            deferredOperationOutputTypeName,
+            paging);
     }
 
     /** Backward-compatible constructor shape before pipeline invocation references were added. */

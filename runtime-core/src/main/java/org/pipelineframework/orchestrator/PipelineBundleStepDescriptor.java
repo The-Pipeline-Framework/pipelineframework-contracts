@@ -24,9 +24,26 @@ public record PipelineBundleStepDescriptor(
     String outputTypeId,
     String runtimeClass,
     String clientClass,
-    Map<String, Object> deferredCompletion
+    Map<String, Object> deferredCompletion,
+    Map<String, Object> paging
 ) {
+    public PipelineBundleStepDescriptor(
+        int index,
+        String authoredName,
+        String kind,
+        String cardinality,
+        String inputTypeId,
+        String outputTypeId,
+        String runtimeClass,
+        String clientClass,
+        Map<String, Object> deferredCompletion
+    ) {
+        this(index, authoredName, kind, cardinality, inputTypeId, outputTypeId,
+            runtimeClass, clientClass, deferredCompletion, Map.of());
+    }
+
     public PipelineBundleStepDescriptor {
         deferredCompletion = deferredCompletion == null ? Map.of() : Map.copyOf(deferredCompletion);
+        paging = paging == null ? Map.of() : Map.copyOf(paging);
     }
 }

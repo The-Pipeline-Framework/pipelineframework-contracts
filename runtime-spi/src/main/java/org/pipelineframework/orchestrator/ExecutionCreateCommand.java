@@ -23,9 +23,27 @@ public record ExecutionCreateCommand(
     ExecutionResultShape resultShape,
     Optional<String> inputCanonicalTypeId,
     int initialStepIndex,
+    Optional<PagedExecutionState> pagingState,
     long nowEpochMs,
     long ttlEpochS
 ) {
+    public ExecutionCreateCommand(
+        String tenantId,
+        String executionKey,
+        String pipelineId,
+        String contractVersion,
+        String releaseVersion,
+        Object inputPayload,
+        ExecutionResultShape resultShape,
+        Optional<String> inputCanonicalTypeId,
+        int initialStepIndex,
+        long nowEpochMs,
+        long ttlEpochS
+    ) {
+        this(tenantId, executionKey, pipelineId, contractVersion, releaseVersion, inputPayload,
+            resultShape, inputCanonicalTypeId, initialStepIndex, Optional.empty(), nowEpochMs, ttlEpochS);
+    }
+
     public ExecutionCreateCommand(
         String tenantId,
         String executionKey,
@@ -47,6 +65,7 @@ public record ExecutionCreateCommand(
             resultShape,
             Optional.empty(),
             0,
+            Optional.empty(),
             nowEpochMs,
             ttlEpochS);
     }
@@ -73,6 +92,7 @@ public record ExecutionCreateCommand(
             resultShape,
             Optional.empty(),
             initialStepIndex,
+            Optional.empty(),
             nowEpochMs,
             ttlEpochS);
     }
@@ -97,6 +117,7 @@ public record ExecutionCreateCommand(
             resultShape,
             Optional.empty(),
             0,
+            Optional.empty(),
             nowEpochMs,
             ttlEpochS);
     }
@@ -119,6 +140,7 @@ public record ExecutionCreateCommand(
             resultShape,
             Optional.empty(),
             0,
+            Optional.empty(),
             nowEpochMs,
             ttlEpochS);
     }
@@ -133,6 +155,8 @@ public record ExecutionCreateCommand(
         inputCanonicalTypeId = Objects.requireNonNull(inputCanonicalTypeId,
             "ExecutionCreateCommand.inputCanonicalTypeId must not be null");
         inputCanonicalTypeId = inputCanonicalTypeId.filter(value -> !value.isBlank());
+        pagingState = Objects.requireNonNull(pagingState,
+            "ExecutionCreateCommand.pagingState must not be null");
         if (initialStepIndex < 0) {
             throw new IllegalArgumentException("ExecutionCreateCommand.initialStepIndex must be >= 0");
         }

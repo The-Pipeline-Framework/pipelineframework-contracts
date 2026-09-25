@@ -75,4 +75,29 @@ class TransitionWireResultTest {
             IllegalArgumentException.class,
             () -> new TransitionFailureEnvelope("failure", "message", -2));
     }
+
+    @Test
+    void completedResultCarriesPageProgressOutsideDomainPayloads() {
+        PagedTransitionCompletion completion = new PagedTransitionCompletion(
+            1000, Optional.of("opaque-next"), false);
+
+        TransitionWireResult result = new TransitionWireResult(
+            TransitionWorkerOutcome.COMPLETED,
+            List.of(),
+            null,
+            null,
+            true,
+            false,
+            Optional.of(completion));
+
+        assertEquals(Optional.of(completion), result.pageCompletion());
+        assertThrows(IllegalArgumentException.class, () -> new TransitionWireResult(
+            TransitionWorkerOutcome.FAILED,
+            List.of(),
+            null,
+            new TransitionFailureEnvelope("failure", "message"),
+            false,
+            false,
+            Optional.of(completion)));
+    }
 }

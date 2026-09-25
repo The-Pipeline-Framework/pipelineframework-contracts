@@ -354,7 +354,8 @@ public class PipelineYamlConfigLoader {
                     operationSelection,
                     negativeCacheTtl,
                     callables,
-                    dynamicOperation));
+                    dynamicOperation,
+                    PipelineStepPagingSyntax.read(stepMap, name)));
             }
         }
         validateDynamicOperationSources(stepInfos);
