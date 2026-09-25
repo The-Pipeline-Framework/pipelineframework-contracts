@@ -1,6 +1,8 @@
 package org.pipelineframework.orchestrator;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import org.pipelineframework.awaitable.AwaitInteractionRecord;
 import org.pipelineframework.awaitable.AwaitUnitRecord;
 
@@ -13,10 +15,22 @@ public record TransitionAwaitSuspension(
     String unitId,
     int stepIndex,
     AwaitUnitRecord unit,
-    List<AwaitInteractionRecord> interactions
+    List<AwaitInteractionRecord> interactions,
+    Optional<PagedTransitionCompletion> pageCompletion
 ) {
+    public TransitionAwaitSuspension(
+        String tenantId,
+        String executionId,
+        String unitId,
+        int stepIndex,
+        AwaitUnitRecord unit,
+        List<AwaitInteractionRecord> interactions
+    ) {
+        this(tenantId, executionId, unitId, stepIndex, unit, interactions, Optional.empty());
+    }
+
     public TransitionAwaitSuspension(String tenantId, String executionId, String unitId, int stepIndex) {
-        this(tenantId, executionId, unitId, stepIndex, null, List.of());
+        this(tenantId, executionId, unitId, stepIndex, null, List.of(), Optional.empty());
     }
 
     public TransitionAwaitSuspension {
@@ -33,5 +47,12 @@ public record TransitionAwaitSuspension(
             throw new IllegalArgumentException("stepIndex must be >= 0");
         }
         interactions = interactions == null ? List.of() : List.copyOf(interactions);
+        pageCompletion = Objects.requireNonNull(pageCompletion, "pageCompletion must not be null");
+    }
+
+    public TransitionAwaitSuspension withPageCompletion(PagedTransitionCompletion completion) {
+        return new TransitionAwaitSuspension(
+            tenantId, executionId, unitId, stepIndex, unit, interactions,
+            Optional.of(Objects.requireNonNull(completion, "completion must not be null")));
     }
 }

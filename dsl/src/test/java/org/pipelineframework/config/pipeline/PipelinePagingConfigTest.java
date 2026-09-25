@@ -29,6 +29,29 @@ class PipelinePagingConfigTest {
               maxRecords: %s
         """;
 
+    private static final String V3_CONFIG = """
+        version: 3
+        appName: Paged source
+        basePackage: com.example
+        transport: LOCAL
+        types:
+          SourceRequest:
+            fields: [[source, string]]
+          SourceRecord:
+            fields: [[value, string]]
+        contract:
+          input: SourceRequest
+          output: SourceRecord
+        steps:
+          - name: Read
+            service: com.example.ReadSource
+            cardinality: ONE_TO_MANY
+            input: SourceRequest
+            output: SourceRecord
+            paging:
+              maxRecords: %s
+        """;
+
     @Test
     void bothDslViewsPreservePaging() throws Exception {
         String yaml = CONFIG.formatted("250");
@@ -38,6 +61,17 @@ class PipelinePagingConfigTest {
 
         assertEquals(250, pipeline.steps().getFirst().paging().orElseThrow().maxRecords());
         assertEquals(250, template.steps().getFirst().paging().orElseThrow().maxRecords());
+    }
+
+    @Test
+    void versionThreeNormalizationPreservesPaging() throws Exception {
+        String yaml = V3_CONFIG.formatted("375");
+
+        PipelineYamlConfig pipeline = new PipelineYamlConfigLoader().load(new StringReader(yaml));
+        var template = loadTemplate(yaml);
+
+        assertEquals(375, pipeline.steps().getFirst().paging().orElseThrow().maxRecords());
+        assertEquals(375, template.steps().getFirst().paging().orElseThrow().maxRecords());
     }
 
     @Test

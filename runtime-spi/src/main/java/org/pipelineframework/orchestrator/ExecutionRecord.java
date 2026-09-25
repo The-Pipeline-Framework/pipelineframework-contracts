@@ -403,6 +403,7 @@ public record ExecutionRecord<I, R>(
             failedStepIndex,
             failedCommandId,
             redriveTargetCommandId,
-            redriveReason);
+            redriveReason,
+            pagingState);
     }
 }

@@ -8,8 +8,18 @@ public record PagedTransitionContext(
     int pageIndex,
     String sourceIdentity,
     Optional<String> startCheckpoint,
-    int maxRecords
+    int maxRecords,
+    Optional<PagedTransitionCompletion> suspendedCompletion
 ) {
+    public PagedTransitionContext(
+        int pageIndex,
+        String sourceIdentity,
+        Optional<String> startCheckpoint,
+        int maxRecords
+    ) {
+        this(pageIndex, sourceIdentity, startCheckpoint, maxRecords, Optional.empty());
+    }
+
     public PagedTransitionContext {
         if (pageIndex < 0) {
             throw new IllegalArgumentException("pageIndex must not be negative");
@@ -26,5 +36,7 @@ public record PagedTransitionContext(
         if (maxRecords < 1) {
             throw new IllegalArgumentException("maxRecords must be positive");
         }
+        suspendedCompletion = Objects.requireNonNull(
+            suspendedCompletion, "suspendedCompletion must not be null");
     }
 }
