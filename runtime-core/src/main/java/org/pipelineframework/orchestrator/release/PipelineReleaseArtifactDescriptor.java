@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * One deployable artifact that satisfies a pipeline release.
+ * One immutable artifact in a pipeline release closure.
  */
 public record PipelineReleaseArtifactDescriptor(
     String artifactId,
