@@ -201,6 +201,9 @@ public final class PipelineReleaseDescriptorValidator {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(name + " is required");
         }
-        return value.trim();
+        if (!value.equals(value.strip())) {
+            throw new IllegalArgumentException(name + " must not have leading or trailing whitespace");
+        }
+        return value;
     }
 }
