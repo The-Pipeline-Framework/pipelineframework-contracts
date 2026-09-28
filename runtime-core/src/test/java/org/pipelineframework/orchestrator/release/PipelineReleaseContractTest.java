@@ -22,6 +22,7 @@ class PipelineReleaseContractTest {
             "payments",
             "contract-v1",
             "release-v1",
+            "payments",
             artifacts);
 
         stepIds.add("receipt");
@@ -39,6 +40,7 @@ class PipelineReleaseContractTest {
             "payments",
             "contract-v1",
             "release-v1",
+            "payments",
             List.of());
         PipelineReleaseRecord registered = new PipelineReleaseRecord(
             "tenant",
@@ -73,6 +75,7 @@ class PipelineReleaseContractTest {
             "payments",
             "contract-v1",
             "release-v1",
+            "payments",
             List.of()));
     }
 }
