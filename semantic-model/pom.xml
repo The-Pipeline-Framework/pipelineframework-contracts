@@ -5,13 +5,13 @@
     <parent>
         <groupId>org.pipelineframework</groupId>
         <artifactId>pipelineframework-contracts-parent</artifactId>
-        <version>26.9.4-SNAPSHOT</version>
+        <version>26.9.4</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <groupId>org.pipelineframework</groupId>
     <artifactId>pipelineframework-semantic-model</artifactId>
-    <version>26.9.4-SNAPSHOT</version>
+    <version>26.9.4</version>
     <packaging>jar</packaging>
 
     <name>The Pipeline Framework Semantic Model</name>
