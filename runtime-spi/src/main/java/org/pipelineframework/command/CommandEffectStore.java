@@ -3,6 +3,7 @@ package org.pipelineframework.command;
 import java.util.Optional;
 
 import io.smallrye.mutiny.Uni;
+import org.pipelineframework.connector.CommandRecoveryBinding;
 
 /**
  * Stores managed command effect state.
@@ -27,6 +28,58 @@ public interface CommandEffectStore {
      * fail the returned {@link Uni} when the command id already exists.
      */
     Uni<CommandEffectRecord> createPending(CommandRequest<?> request, long nowEpochMs);
+
+    /**
+     * Opt-in authority for original bound reservations, strict single-winner dispatch claims,
+     * and guarded reconciled success. All recovery overloads must be implemented atomically.
+     * Both original and recovery callers must use claimPendingDispatch before external dispatch.
+     * A repeated claim is a conflict, even for the same attempt; it never grants dispatch twice.
+     */
+    default boolean supportsRecovery() {
+        return false;
+    }
+
+    /** Persists original binding together with the initial reservation, in one write. */
+    default Uni<CommandEffectRecord> createPending(
+        CommandRequest<?> request, CommandRecoveryBinding binding, long nowEpochMs
+    ) {
+        return recoveryUnsupported();
+    }
+
+    /** Persists a deliberate attempt and its original binding together, in one write. */
+    default Uni<CommandEffectRecord> createAttempt(
+        CommandRequest<?> request, CommandAttemptAdmission admission,
+        CommandRecoveryBinding binding, long nowEpochMs
+    ) {
+        return recoveryUnsupported();
+    }
+
+    /**
+     * Atomically compares the exact current bound PENDING attempt and appends DISPATCHING.
+     * Only the successful caller may dispatch. Losers must not retry dispatch admission or
+     * treat a same-attempt DISPATCHING record as a successful claim.
+     */
+    default Uni<CommandEffectRecord> claimPendingDispatch(CommandRecoveryBinding expected, long nowEpochMs) {
+        return recoveryUnsupported();
+    }
+
+    /**
+     * Atomically verifies the exact binding and expected uncertain state before appending typed
+     * success plus safe settlement provenance. The runtime must first validate authoritative
+     * provider evidence, confirmation policy, output type/digest and declared receipt kind.
+     * Conflicts never authorize overwriting newer state or creating another attempt.
+     */
+    default Uni<CommandEffectRecord> reconcileSucceeded(
+        CommandRecoveryBinding expected, CommandEffectStatus expectedStatus, Object output,
+        CommandOutcomeSnapshot outcome, CommandReconciliationReceipt receipt, long nowEpochMs
+    ) {
+        return recoveryUnsupported();
+    }
+
+    private static Uni<CommandEffectRecord> recoveryUnsupported() {
+        return Uni.createFrom().failure(new UnsupportedOperationException(
+            "Command recovery requires an explicitly recovery-capable effect store"));
+    }
 
     /**
      * Whether this store can atomically append and persist deliberate Command attempts.

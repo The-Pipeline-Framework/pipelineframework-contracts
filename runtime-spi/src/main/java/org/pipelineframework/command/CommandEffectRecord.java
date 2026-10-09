@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.pipelineframework.connector.CommandRecoveryBinding;
 
 /**
  * Recorded state of one logical Command effect and its immutable dispatch-attempt history.
@@ -83,6 +84,14 @@ public record CommandEffectRecord(
                 createdAtEpochMs, updatedAtEpochMs))
             : List.copyOf(attempts);
         validateAttempts(attempts, status);
+        for (CommandEffectAttemptRecord attempt : attempts) {
+            attempt.recoveryBinding().ifPresent(binding -> {
+                if (!tenantId.equals(binding.tenantId()) || !commandId.equals(binding.commandId())
+                    || !stepId.equals(binding.stepId())) {
+                    throw new IllegalArgumentException("attempt recovery binding does not match the logical effect");
+                }
+            });
+        }
     }
 
     public CommandEffectAttemptRecord currentAttempt() {
@@ -147,6 +156,54 @@ public record CommandEffectRecord(
         return copyWithCurrentAttempt(
             currentAttempt().withStatus(CommandEffectStatus.DISPATCHING, nowEpochMs),
             CommandEffectStatus.DISPATCHING, null, null, null, Optional.empty(), nowEpochMs);
+    }
+
+    /** Establishes metadata as part of the original reservation write, never as a later migration. */
+    public CommandEffectRecord bindRecovery(CommandRecoveryBinding binding) {
+        Objects.requireNonNull(binding, "recovery binding must not be null");
+        if (!tenantId.equals(binding.tenantId()) || !commandId.equals(binding.commandId())
+            || !stepId.equals(binding.stepId())) {
+            throw new IllegalArgumentException("recovery binding does not match the logical effect");
+        }
+        return copyWithCurrentAttempt(currentAttempt().bindRecovery(binding), status, output,
+            errorClass, errorMessage, outcome, updatedAtEpochMs);
+    }
+
+    /** Pure strict-claim transition; stores must additionally atomically compare/append it. */
+    public CommandEffectRecord claimPendingDispatch(CommandRecoveryBinding expected, long nowEpochMs) {
+        requireRecoveryBinding(expected);
+        return dispatching(expected.attemptId(), nowEpochMs);
+    }
+
+    /** Guarded typed settlement; no new dispatch attempt or occurrence is created. */
+    public CommandEffectRecord reconcileSucceeded(
+        CommandRecoveryBinding expected, CommandEffectStatus expectedStatus, Object commandOutput,
+        CommandOutcomeSnapshot snapshot, CommandReconciliationReceipt receipt, long nowEpochMs
+    ) {
+        requireRecoveryBinding(expected);
+        if (status != expectedStatus
+            || (expectedStatus != CommandEffectStatus.DISPATCHING && expectedStatus != CommandEffectStatus.AMBIGUOUS)) {
+            throw new IllegalStateException("reconciliation source state is stale or ineligible");
+        }
+        Objects.requireNonNull(snapshot, "reconciliation snapshot must not be null");
+        if (snapshot.outcomeStatus() != CommandEffectStatus.SUCCEEDED
+            || !snapshot.operationIdentity().equals(expected.operationIdentity())
+            || snapshot.providerMajorVersion() != expected.providerMajorVersion()
+            || !snapshot.configuration().equals(expected.operationConfiguration())) {
+            throw new IllegalArgumentException("reconciliation outcome does not match original operation/configuration");
+        }
+        return copyWithCurrentAttempt(
+            currentAttempt().reconciledSucceeded(commandOutput, snapshot, receipt, nowEpochMs),
+            CommandEffectStatus.SUCCEEDED, commandOutput, null, null, Optional.of(snapshot), nowEpochMs);
+    }
+
+    private void requireRecoveryBinding(CommandRecoveryBinding expected) {
+        Objects.requireNonNull(expected, "expected recovery binding must not be null");
+        if (!tenantId.equals(expected.tenantId()) || !commandId.equals(expected.commandId())
+            || !stepId.equals(expected.stepId())
+            || !currentAttempt().recoveryBinding().filter(expected::equals).isPresent()) {
+            throw new IllegalStateException("recovery binding is absent, stale or conflicting");
+        }
     }
 
     public CommandEffectRecord succeeded(String attemptId, Object commandOutput, long nowEpochMs) {
