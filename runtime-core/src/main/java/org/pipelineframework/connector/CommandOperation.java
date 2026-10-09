@@ -21,6 +21,25 @@ public interface CommandOperation<I, C, O> extends ConnectorOperation {
 
     CompletionStage<CommandOutcome<O>> dispatch(CommandInvocation<I, C> invocation);
 
+    /**
+     * Opt-in stable destination binding, evaluated before reservation and again before recovery.
+     * Providers must derive this from authoritative non-secret destination/configuration identity,
+     * not merely a logical connection name. Empty means this invocation is not recoverable.
+     */
+    default Optional<CommandRecoveryTarget> recoveryTarget(CommandInvocation<I, C> invocation) {
+        return Optional.empty();
+    }
+
+    /**
+     * Read-only authoritative inquiry, never a dispatch or retry. Capability declarations alone
+     * do not implement this hook. Old providers remain unresolved; missing/stale/conflicting
+     * evidence must not be promoted to success or permission to repeat an effect.
+     */
+    default CompletionStage<CommandReconciliationResult<O>> reconcile(CommandReconciliationInvocation<I, C> invocation) {
+        return java.util.concurrent.CompletableFuture.completedFuture(
+            new CommandReconciliationResult.Unresolved<>("reconciliation-unsupported"));
+    }
+
     default CompletionStage<CommandOutcome<O>> dispatch(
         I input,
         ConnectorConfigurationDocument configuration,

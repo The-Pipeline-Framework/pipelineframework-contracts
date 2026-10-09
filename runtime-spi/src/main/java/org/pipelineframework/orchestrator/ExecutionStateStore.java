@@ -54,6 +54,34 @@ public interface ExecutionStateStore {
      */
     Uni<CreateExecutionResult> createOrGetExecution(ExecutionCreateCommand command);
 
+    /** Whether strict client-key admission, atomic intent/receipt creation and read-only inquiry are supported. */
+    default boolean supportsExecutionAdmission() {
+        return false;
+    }
+
+    /**
+     * Atomically creates a native execution and its immutable admission intent/receipt, or returns the original.
+     * Client-key authority is scoped by tenant/pipeline/key, independent of Contract and Release.
+     * Same-key requests with any different original intent or verified release evidence must conflict.
+     * Expired/missing execution state must not erase or permit reuse of retained admission authority.
+     * No emulation through legacy create-or-get or separate receipt persistence is allowed.
+     */
+    default Uni<ExecutionAdmissionResult> createOrGetAdmittedExecution(ExecutionAdmissionCreateCommand command) {
+        return Uni.createFrom().failure(new UnsupportedOperationException(
+            "ExecutionStateStore provider '" + providerName() + "' does not support strict execution admission"));
+    }
+
+    /**
+     * Strong read-only lookup of an immutable admission receipt, without enqueue, cleanup or effect execution.
+     * Absence means unknown, not proof of no admission or permission to redispatch/reuse the key.
+     * Receipt retention is independent of execution expiry; legacy records must not acquire synthetic receipts.
+     */
+    default Uni<java.util.Optional<ExecutionAdmissionReceipt>> getExecutionAdmission(
+        String tenantId, String pipelineId, String clientKey) {
+        return Uni.createFrom().failure(new UnsupportedOperationException(
+            "ExecutionStateStore provider '" + providerName() + "' does not support execution admission inquiry"));
+    }
+
     /**
      * Fetches one execution by tenant and execution id.
      *

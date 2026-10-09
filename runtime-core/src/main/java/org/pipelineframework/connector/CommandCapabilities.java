@@ -6,6 +6,8 @@ import java.util.Set;
 
 /**
  * Command-family guarantees an operation can prove.
+ * Reconciliation support is a declared guarantee, not dispatch permission: native recovery also
+ * requires the operation's authoritative inquiry/target hooks and a recovery-capable effect store.
  */
 public record CommandCapabilities(
     boolean retryRedriveSupported,
