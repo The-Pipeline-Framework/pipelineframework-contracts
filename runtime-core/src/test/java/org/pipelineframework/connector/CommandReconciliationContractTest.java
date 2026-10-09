@@ -73,6 +73,20 @@ class CommandReconciliationContractTest {
         assertEquals("account-1", new CommandRecoveryTarget("account-1", configuration).identity());
     }
 
+    @Test
+    void recoveryBindingAcceptsEqualRestoredCommandKindButRejectsOtherKinds() {
+        ConnectorOperationKind restored = new ConnectorOperationKind("tpf:command");
+        assertNotSame(ConnectorOperationKind.COMMAND, restored);
+        assertEquals(ConnectorOperationKind.COMMAND, restored);
+        assertEquals(binding("tenant", "command", "occurrence", "attempt"),
+            binding("tenant", "command", "occurrence", "attempt", restored));
+        for (ConnectorOperationKind other : List.of(ConnectorOperationKind.QUERY,
+            new ConnectorOperationKind("provider:command"))) {
+            assertThrows(IllegalArgumentException.class,
+                () -> binding("tenant", "command", "occurrence", "attempt", other));
+        }
+    }
+
     private static CommandInvocation<String, String> invocation(CommandRecoveryBinding binding) {
         return new CommandInvocation<>("input", "config", String.class,
             ConnectorExecutionContext.managed(binding.tenantId(), "execution", "pipeline", "1", "release-1", "step",
@@ -82,9 +96,14 @@ class CommandReconciliationContractTest {
     }
 
     private static CommandRecoveryBinding binding(String tenant, String command, String occurrence, String attempt) {
+        return binding(tenant, command, occurrence, attempt, ConnectorOperationKind.COMMAND);
+    }
+
+    private static CommandRecoveryBinding binding(String tenant, String command, String occurrence, String attempt,
+        ConnectorOperationKind kind) {
         ConnectorConfigurationSnapshot configuration = new ConnectorConfigurationSnapshot("configuration", 1, "b".repeat(64), List.of());
         return new CommandRecoveryBinding(tenant, command, occurrence, attempt, "execution", "pipeline", "1", "release-1", "step",
-            new ConnectorOperationIdentity(new ConnectorProviderId("provider"), "write", ConnectorOperationKind.COMMAND, 1),
+            new ConnectorOperationIdentity(new ConnectorProviderId("provider"), "write", kind, 1),
             1, ConnectorBindingName.of("configured"), String.class.getName(), String.class.getName(), "a".repeat(64),
             configuration, new CommandRecoveryTarget("account-1", configuration));
     }

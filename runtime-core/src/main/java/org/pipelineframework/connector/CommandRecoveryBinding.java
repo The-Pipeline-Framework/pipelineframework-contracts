@@ -37,7 +37,7 @@ public record CommandRecoveryBinding(
         requireText(releaseVersion, "releaseVersion");
         requireText(stepId, "stepId");
         operationIdentity = Objects.requireNonNull(operationIdentity, "operation identity must not be null");
-        if (operationIdentity.kind() != ConnectorOperationKind.COMMAND) {
+        if (!ConnectorOperationKind.COMMAND.equals(operationIdentity.kind())) {
             throw new IllegalArgumentException("recovery binding requires a Command operation");
         }
         if (providerMajorVersion < 1) {
