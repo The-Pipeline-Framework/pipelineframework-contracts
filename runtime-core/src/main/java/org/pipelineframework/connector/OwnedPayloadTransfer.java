@@ -16,6 +16,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import org.pipelineframework.config.boundary.PipelineHttpPayloadBoundaryConfig;
 import org.pipelineframework.config.boundary.PipelineObjectPublishConfig;
@@ -65,15 +70,29 @@ public final class OwnedPayloadTransfer {
             principal, tenant, scope, Optional.empty());
         ConnectorBindingName binding = ConnectorBindingName.of(target.binding().orElseThrow(() ->
             new IllegalStateException("owned upload target requires a connector binding")));
-        bindings.activate(binding, runtimeContext).toCompletableFuture().join();
+        awaitUpload(bindings.activate(binding, runtimeContext), cancelled);
         ObjectTargetProvider provider = (ObjectTargetProvider) bindings.requireOperation(
             binding, target.provider(), ConnectorOperationKind.OBJECT_TARGET, 1);
         ConnectorPayloadOrigin sourceOrigin = bindings.objectSourceOrigin(binding, target.provider(), 1);
         Map<String, String> metadata = Map.of(OWNER_TENANT, owner.tenantId(), OWNER_SCOPE, owner.scopeId(),
             OWNER_BINDING, binding.value(), OWNER_ORIGIN, originDigest(sourceOrigin));
         String key = "uploads/" + UUID.randomUUID();
-        ObjectWriteSession session = provider.open(new ObjectWriteOpenRequest(
-            target.name(), target, key, normalizedMediaType, metadata, key)).toCompletableFuture().join();
+        requireActiveUpload(cancelled);
+        CompletionStage<ObjectWriteSession> opening = provider.open(new ObjectWriteOpenRequest(
+            target.name(), target, key, normalizedMediaType, metadata, key));
+        ObjectWriteSession session;
+        try {
+            session = awaitUpload(opening, cancelled);
+        } catch (CancellationException failure) {
+            // The provider may finish opening after the request has gone away.
+            // Do not cancel its future and lose the handle needed to release that session.
+            opening.whenComplete((lateSession, openFailure) -> {
+                if (lateSession != null) {
+                    lateSession.abort(failure);
+                }
+            });
+            throw failure;
+        }
         try {
             MessageDigest digest = sha256();
             byte[] buffer = new byte[CHUNK_BYTES];
@@ -92,13 +111,13 @@ public final class OwnedPayloadTransfer {
                     throw new IllegalArgumentException("upload exceeds configured maximum bytes");
                 }
                 digest.update(buffer, 0, count);
-                session.write(ByteBuffer.wrap(buffer, 0, count)).toCompletableFuture().join();
+                awaitUpload(session.write(ByteBuffer.wrap(buffer, 0, count)), cancelled);
                 bytes += count;
             }
             requireActiveUpload(cancelled);
             String checksum = HexFormat.of().formatHex(digest.digest());
-            ObjectWriteResult result = session.close(new ObjectWriteCloseRequest(bytes, checksum, metadata))
-                .toCompletableFuture().join();
+            ObjectWriteResult result = awaitUpload(
+                session.close(new ObjectWriteCloseRequest(bytes, checksum, metadata)), cancelled);
             PayloadReference issued = result.reference();
             if (issued == null || result.bytes() != bytes || issued.sizeBytes() != bytes
                 || !normalizedMediaType.equals(issued.contentType().toLowerCase(Locale.ROOT))
@@ -309,6 +328,28 @@ public final class OwnedPayloadTransfer {
     private static void requireActiveUpload(BooleanSupplier cancelled) {
         if (cancelled.getAsBoolean()) {
             throw new CancellationException("payload upload request was cancelled");
+        }
+    }
+
+    /** The synchronous adapter runs off the event loop, but must still observe disconnects during async I/O. */
+    private <T> T awaitUpload(CompletionStage<T> stage, BooleanSupplier cancelled) {
+        var future = stage.toCompletableFuture();
+        while (true) {
+            requireActiveUpload(cancelled);
+            try {
+                T result = future.get(50, TimeUnit.MILLISECONDS);
+                requireActiveUpload(cancelled);
+                return result;
+            } catch (TimeoutException pending) {
+                // Recheck the transport cancellation signal without waiting for provider completion.
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                CancellationException failure = new CancellationException("payload upload thread was interrupted");
+                failure.initCause(interrupted);
+                throw failure;
+            } catch (ExecutionException failure) {
+                throw new CompletionException(failure.getCause());
+            }
         }
     }
 
