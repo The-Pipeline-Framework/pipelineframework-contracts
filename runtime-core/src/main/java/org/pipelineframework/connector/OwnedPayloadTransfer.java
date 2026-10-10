@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -194,6 +196,9 @@ public final class OwnedPayloadTransfer {
                               String principal, String tenant, String scope, PayloadReference reference) {
         requireDirection(boundary, PipelineHttpPayloadBoundaryConfig.Direction.DOWNLOAD);
         Objects.requireNonNull(reference, "payload reference must not be null");
+        if (!boundary.objectName().equals(source.name())) {
+            throw new SecurityException("payload boundary does not match the download source");
+        }
         PayloadBoundaryOwner owner = authorize(boundary, PayloadBoundaryAuthorizationRequest.Action.DOWNLOAD,
             principal, tenant, scope, Optional.of(reference));
         if (!owner.tenantId().equals(reference.metadata().get(OWNER_TENANT))
@@ -223,6 +228,46 @@ public final class OwnedPayloadTransfer {
             || !source.provider().equalsIgnoreCase(reference.provider())) {
             throw new SecurityException("payload provenance does not match the download source");
         }
+        requireSourceLocation(source, reference);
+    }
+
+    static void requireSourceLocation(PipelineObjectSourceConfig source, PayloadReference reference) {
+        String container = Optional.ofNullable(reference.container()).orElseThrow(() ->
+            new SecurityException("payload reference has no container"));
+        String prefix = locationValue(source, "prefix").orElse("");
+        if ("s3".equalsIgnoreCase(source.provider())) {
+            String bucket = locationValue(source, "bucket").orElseThrow(() ->
+                new SecurityException("download source has no configured bucket"));
+            if (!bucket.equals(container) || !reference.key().startsWith(prefix)) {
+                throw new SecurityException("payload reference is outside the download source location");
+            }
+            return;
+        }
+        if (!"filesystem".equalsIgnoreCase(source.provider())) {
+            throw new SecurityException("unsupported download source location");
+        }
+        String root = locationValue(source, "root").orElseThrow(() ->
+            new SecurityException("download source has no configured root"));
+        try {
+            Path configuredRoot = Path.of(root).toRealPath();
+            Path referenceRoot = Path.of(container).toAbsolutePath().normalize();
+            Path key = Path.of(reference.key()).normalize();
+            Path configuredPrefix = Path.of(prefix).normalize();
+            if (!configuredRoot.equals(referenceRoot) || key.isAbsolute() || key.startsWith("..")
+                || configuredPrefix.isAbsolute() || configuredPrefix.startsWith("..")
+                || (!configuredPrefix.toString().isEmpty() && !key.startsWith(configuredPrefix))) {
+                throw new SecurityException("payload reference is outside the download source location");
+            }
+        } catch (IOException | InvalidPathException failure) {
+            throw new SecurityException("payload reference location cannot be verified", failure);
+        }
+    }
+
+    private static Optional<String> locationValue(PipelineObjectSourceConfig source, String key) {
+        return Optional.ofNullable(source.location().get(key))
+            .map(Object::toString)
+            .map(String::trim)
+            .filter(value -> !value.isEmpty());
     }
 
     private PayloadBoundaryOwner authorize(PipelineHttpPayloadBoundaryConfig boundary,
