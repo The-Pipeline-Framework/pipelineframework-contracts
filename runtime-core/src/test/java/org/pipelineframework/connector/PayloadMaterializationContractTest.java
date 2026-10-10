@@ -9,6 +9,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CompletionException;
@@ -55,16 +57,57 @@ class PayloadMaterializationContractTest {
         assertEquals("connector payload binding provenance changed for 'documents'",
             failure.getCause().getMessage());
         assertThrows(IllegalArgumentException.class, () -> changed.openRead(repositoryReference()));
+
+        TestProvider provider = new TestProvider();
+        ConnectorBindingRegistry matching = registry("/data/one", provider);
+        matching.activate(BINDING, ConnectorRuntimeContext.empty()).toCompletableFuture().join();
+        ObjectReadSession session = new ObjectReadSession() {
+            @Override
+            public CompletionStage<Optional<ByteBuffer>> read(int maxBytes) {
+                return CompletableFuture.completedFuture(Optional.empty());
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        provider.readStage = CompletableFuture.completedFuture(session);
+        assertEquals(session, matching.openRead(owned).toCompletableFuture().join());
+        provider.readStage = CompletableFuture.completedFuture(null);
+        assertThrows(CompletionException.class, () -> matching.openRead(owned).toCompletableFuture().join());
+
+        AtomicBoolean closed = new AtomicBoolean();
+        CompletableFuture<ObjectReadSession> pending = new CompletableFuture<>();
+        provider.readStage = pending;
+        CompletableFuture<ObjectReadSession> cancelled = matching.openRead(owned).toCompletableFuture();
+        cancelled.cancel(true);
+        pending.complete(new ObjectReadSession() {
+            @Override
+            public CompletionStage<Optional<ByteBuffer>> read(int maxBytes) {
+                return CompletableFuture.completedFuture(Optional.empty());
+            }
+
+            @Override
+            public void close() {
+                closed.set(true);
+            }
+        });
+        assertEquals(true, closed.get());
     }
 
     private ConnectorBindingRegistry registry(String root) {
+        return registry(root, new TestProvider());
+    }
+
+    private ConnectorBindingRegistry registry(String root, TestProvider provider) {
         return ConnectorBindingRegistry.fromProviders(
             List.of(new ConnectorBindingDefinition(
                 BINDING,
                 ConnectorProviderId.of("test.documents"),
                 1,
                 new ConnectorConfigurationDocument(Map.of("root", root)))),
-            List.of(new TestProvider()));
+            List.of(provider),
+            prototype -> ConnectorProviderLease.of(provider));
     }
 
     private PayloadReference repositoryReference() {
@@ -77,6 +120,8 @@ class PayloadMaterializationContractTest {
     }
 
     private static final class TestProvider implements ConnectorProvider<ProviderConfig> {
+        private CompletionStage<ObjectReadSession> readStage = CompletableFuture.failedFuture(
+            new UnsupportedOperationException("not used"));
         private final ObjectSourceOperation operation = new ObjectSourceOperation() {
             @Override
             public String id() {
@@ -86,6 +131,11 @@ class PayloadMaterializationContractTest {
             @Override
             public CompletionStage<MaterializedPayload> materialize(PayloadReference reference, long maxBytes) {
                 return CompletableFuture.failedFuture(new UnsupportedOperationException("not used"));
+            }
+
+            @Override
+            public CompletionStage<ObjectReadSession> openRead(PayloadReference reference) {
+                return readStage;
             }
         };
 

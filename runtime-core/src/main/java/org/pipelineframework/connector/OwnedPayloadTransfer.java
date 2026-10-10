@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,6 +58,7 @@ public final class OwnedPayloadTransfer {
         Objects.requireNonNull(body, "upload body must not be null");
         Objects.requireNonNull(cancelled, "upload cancellation signal must not be null");
         requireMediaType(boundary, mediaType);
+        String normalizedMediaType = mediaType.toLowerCase(Locale.ROOT);
         PayloadBoundaryOwner owner = authorize(boundary, PayloadBoundaryAuthorizationRequest.Action.UPLOAD,
             principal, tenant, scope, Optional.empty());
         ConnectorBindingName binding = ConnectorBindingName.of(target.binding().orElseThrow(() ->
@@ -69,7 +71,7 @@ public final class OwnedPayloadTransfer {
             OWNER_BINDING, binding.value(), OWNER_ORIGIN, originDigest(sourceOrigin));
         String key = "uploads/" + UUID.randomUUID();
         ObjectWriteSession session = provider.open(new ObjectWriteOpenRequest(
-            target.name(), target, key, mediaType, metadata, key)).toCompletableFuture().join();
+            target.name(), target, key, normalizedMediaType, metadata, key)).toCompletableFuture().join();
         try {
             MessageDigest digest = sha256();
             byte[] buffer = new byte[CHUNK_BYTES];
@@ -97,7 +99,8 @@ public final class OwnedPayloadTransfer {
                 .toCompletableFuture().join();
             PayloadReference issued = result.reference();
             if (issued == null || result.bytes() != bytes || issued.sizeBytes() != bytes
-                || !mediaType.equals(issued.contentType()) || !checksum.equals(issued.checksum())
+                || !normalizedMediaType.equals(issued.contentType().toLowerCase(Locale.ROOT))
+                || !checksum.equals(issued.checksum())
                 || !owner.tenantId().equals(issued.metadata().get(OWNER_TENANT))
                 || !owner.scopeId().equals(issued.metadata().get(OWNER_SCOPE))
                 || !binding.value().equals(issued.metadata().get(OWNER_BINDING))
@@ -105,11 +108,13 @@ public final class OwnedPayloadTransfer {
                 throw new IllegalStateException("object target returned inconsistent owned payload metadata");
             }
             return bindings.ownPayloadReference(binding, target.provider(), 1, issued);
-        } catch (IOException | RuntimeException failure) {
+        } catch (Throwable failure) {
             try {
                 session.abort(failure).toCompletableFuture().join();
-            } catch (RuntimeException abortFailure) {
-                failure.addSuppressed(abortFailure);
+            } catch (Throwable abortFailure) {
+                if (abortFailure != failure) {
+                    failure.addSuppressed(abortFailure);
+                }
             }
             throw failure;
         }
@@ -131,23 +136,27 @@ public final class OwnedPayloadTransfer {
         try {
             ConnectorBindingName binding = ConnectorBindingName.of(source.binding().orElseThrow());
             bindings.activate(binding, runtimeContext).toCompletableFuture().join();
-            return new DownloadLease(bindings.openRead(reference).toCompletableFuture().join(), reference.sizeBytes());
+            return new DownloadLease(bindings.openRead(reference).toCompletableFuture().join(),
+                reference.sizeBytes(), reference.checksum());
         } catch (RuntimeException failure) {
-            throw new SecurityException("payload is unavailable or provenance is invalid");
+            throw new SecurityException("payload is unavailable or provenance is invalid", failure);
         }
     }
 
     public static final class DownloadLease implements AutoCloseable {
         private final ObjectReadSession session;
         private final long expectedBytes;
-        private DownloadLease(ObjectReadSession session, long expectedBytes) {
+        private final String expectedChecksum;
+        DownloadLease(ObjectReadSession session, long expectedBytes, String expectedChecksum) {
             this.session = Objects.requireNonNull(session);
             this.expectedBytes = expectedBytes;
+            this.expectedChecksum = expectedChecksum;
         }
 
         public void writeTo(OutputStream response) throws IOException {
             Objects.requireNonNull(response, "response stream must not be null");
             long bytes = 0;
+            MessageDigest digest = expectedChecksum == null ? null : sha256();
             while (true) {
                 Optional<ByteBuffer> next = session.read(CHUNK_BYTES).toCompletableFuture().join();
                 if (next.isEmpty()) {
@@ -160,11 +169,17 @@ public final class OwnedPayloadTransfer {
                 }
                 byte[] copy = new byte[count];
                 chunk.get(copy);
+                if (digest != null) {
+                    digest.update(copy);
+                }
                 response.write(copy);
                 bytes += count;
             }
             if (bytes != expectedBytes) {
                 throw new IllegalStateException("provider read length differs from reference");
+            }
+            if (digest != null && !HexFormat.of().formatHex(digest.digest()).equalsIgnoreCase(expectedChecksum)) {
+                throw new IllegalStateException("provider read checksum differs from reference");
             }
         }
 
@@ -192,7 +207,7 @@ public final class OwnedPayloadTransfer {
                     throw new SecurityException("payload reference has expired");
                 }
             } catch (java.time.format.DateTimeParseException failure) {
-                throw new SecurityException("payload reference expiry is invalid");
+                throw new SecurityException("payload reference expiry is invalid", failure);
             }
         }
         requireMediaType(boundary, reference.contentType());
@@ -233,7 +248,7 @@ public final class OwnedPayloadTransfer {
     }
 
     private static void requireMediaType(PipelineHttpPayloadBoundaryConfig boundary, String mediaType) {
-        if (mediaType == null || !boundary.contentTypes().contains(mediaType)) {
+        if (mediaType == null || !boundary.contentTypes().contains(mediaType.toLowerCase(Locale.ROOT))) {
             throw new IllegalArgumentException("payload media type is not allowed");
         }
     }

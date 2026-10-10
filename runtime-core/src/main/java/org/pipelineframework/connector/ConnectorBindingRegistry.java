@@ -389,8 +389,17 @@ public final class ConnectorBindingRegistry {
         } catch (RuntimeException failure) {
             return CompletableFuture.failedFuture(failure);
         }
-        return operation.openRead(reference).thenApply(session ->
-            Objects.requireNonNull(session, "object source read session must not be null"));
+        CompletableFuture<ObjectReadSession> result = new CompletableFuture<>();
+        operation.openRead(reference).whenComplete((session, failure) -> {
+            if (failure != null) {
+                result.completeExceptionally(failure);
+            } else if (session == null) {
+                result.completeExceptionally(new NullPointerException("object source read session must not be null"));
+            } else if (!result.complete(session)) {
+                session.close();
+            }
+        });
+        return result;
     }
 
     private BindingSlot requireSlot(ConnectorBindingName name) {

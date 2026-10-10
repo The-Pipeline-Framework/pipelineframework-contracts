@@ -84,6 +84,53 @@ class PipelineTemplateConfigLoaderTest {
     }
 
     @Test
+    void resolvesHttpPayloadAliasesAndNormalizesMediaTypes() throws Exception {
+        Path configPath = tempDir.resolve("http-payload-aliases.yaml");
+        Files.writeString(configPath, """
+            version: 3
+            appName: Payload boundaries
+            basePackage: com.example.payload
+            transport: REST
+            platform: COMPUTE
+            contract: { input: Request, output: Request }
+            types:
+              Request:
+                fields:
+                  - [invoice, PayloadAlias]
+              RequestAlias:
+                alias: Request
+              PayloadAlias:
+                alias: payload_ref
+            publish:
+              uploads: { kind: object, provider: filesystem, binding: files }
+            httpPayloads:
+              invoice-upload:
+                direction: upload
+                object: uploads
+                canonicalType: RequestAlias
+                referenceField: invoice
+                contentTypes: [Application/PDF]
+                maxBytes: 1048576
+                authorizationScope: invoice
+            steps: []
+            """);
+        PipelineTemplateConfig config = new PipelineTemplateConfigLoader().load(configPath);
+        assertEquals(List.of("application/pdf"), config.httpPayloads().get("invoice-upload").contentTypes());
+
+        String yaml = Files.readString(configPath);
+        Files.writeString(configPath, yaml.replace("contentTypes: [Application/PDF]", "contentTypes: application/pdf"));
+        IllegalStateException shape = assertThrows(IllegalStateException.class,
+            () -> new PipelineTemplateConfigLoader().load(configPath));
+        assertTrue(shape.getMessage().contains("invoice-upload"));
+        assertTrue(shape.getMessage().contains("contentTypes must be a list"));
+
+        Files.writeString(configPath, yaml.replace("maxBytes: 1048576", "maxBytes: invalid"));
+        IllegalStateException size = assertThrows(IllegalStateException.class,
+            () -> new PipelineTemplateConfigLoader().load(configPath));
+        assertTrue(size.getMessage().contains("invoice-upload"));
+    }
+
+    @Test
     void rejectsHttpPayloadBoundaryWithoutCanonicalPayloadField() throws Exception {
         Path configPath = tempDir.resolve("invalid-http-payload.yaml");
         Files.writeString(configPath, """

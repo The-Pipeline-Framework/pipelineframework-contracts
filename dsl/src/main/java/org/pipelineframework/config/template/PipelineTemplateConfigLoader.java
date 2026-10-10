@@ -321,13 +321,22 @@ public class PipelineTemplateConfigLoader {
                     + "' direction must be upload or download", failure);
             }
             String objectName = requiredV3String(declaration, "object", name);
-            PipelineHttpPayloadBoundaryConfig boundary = new PipelineHttpPayloadBoundaryConfig(
-                name, direction, objectName,
-                requiredV3String(declaration, "canonicalType", name),
-                requiredV3String(declaration, "referenceField", name),
-                readStringList(declaration, "contentTypes"),
-                readLong(declaration, "maxBytes", 0L),
-                requiredV3String(declaration, "authorizationScope", name));
+            if (declaration.containsKey("contentTypes") && !(declaration.get("contentTypes") instanceof List<?>)) {
+                throw new IllegalStateException("HTTP payload boundary '" + name + "' contentTypes must be a list");
+            }
+            PipelineHttpPayloadBoundaryConfig boundary;
+            try {
+                boundary = new PipelineHttpPayloadBoundaryConfig(
+                    name, direction, objectName,
+                    requiredV3String(declaration, "canonicalType", name),
+                    requiredV3String(declaration, "referenceField", name),
+                    readStringList(declaration, "contentTypes"),
+                    readLong(declaration, "maxBytes", 0L),
+                    requiredV3String(declaration, "authorizationScope", name));
+            } catch (IllegalArgumentException failure) {
+                throw new IllegalStateException("HTTP payload boundary '" + name + "' is invalid: "
+                    + failure.getMessage(), failure);
+            }
             validateHttpPayloadBoundary(boundary, typeModel, sources, publish);
             parsed.put(name, boundary);
         }
@@ -340,14 +349,11 @@ public class PipelineTemplateConfigLoader {
         Map<String, PipelineObjectSourceConfig> sources,
         Map<String, PipelineObjectPublishConfig> publish
     ) {
-        PipelineTemplateTypeDefinition definition = typeModel.definitions().get(boundary.canonicalType());
-        if (!(definition instanceof PipelineTemplateTypeDefinition.RecordType record)) {
-            throw new IllegalStateException("HTTP payload boundary '" + boundary.name()
-                + "' canonicalType must name a record type");
-        }
+        PipelineTemplateTypeDefinition.RecordType record =
+            recordType(typeModel, boundary.canonicalType(), "HTTP payload boundary '" + boundary.name() + "'");
         boolean payloadField = record.fields().stream().anyMatch(field ->
             field.name().equals(boundary.referenceField())
-                && field.type() instanceof PipelineTemplateTypeReference.Scalar scalar
+                && typeModel.resolveAliases(field.type()) instanceof PipelineTemplateTypeReference.Scalar scalar
                 && "payload_ref".equals(scalar.name()) && !field.repeated());
         if (!payloadField) {
             throw new IllegalStateException("HTTP payload boundary '" + boundary.name()

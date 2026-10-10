@@ -1,6 +1,7 @@
 package org.pipelineframework.config.boundary;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /** Pinned authoring contract for one generated HTTP payload boundary. */
@@ -24,7 +25,7 @@ public record PipelineHttpPayloadBoundaryConfig(
         referenceField = require(referenceField, "referenceField");
         authorizationScope = require(authorizationScope, "authorizationScope");
         contentTypes = contentTypes == null ? List.of() : contentTypes.stream()
-            .map(type -> require(type, "content type"))
+            .map(type -> require(type, "content type").toLowerCase(Locale.ROOT))
             .distinct().sorted().toList();
         if (contentTypes.isEmpty()) {
             throw new IllegalArgumentException("HTTP payload boundary requires contentTypes");
