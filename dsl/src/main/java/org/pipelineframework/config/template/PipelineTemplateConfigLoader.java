@@ -145,6 +145,9 @@ public class PipelineTemplateConfigLoader {
         if (dialect != PipelineTemplateDialect.V3 && rootMap.containsKey("pipelines")) {
             throw new IllegalStateException("Top-level 'pipelines' requires version: 3");
         }
+        if (dialect != PipelineTemplateDialect.V3 && rootMap.containsKey("httpPayloads")) {
+            throw new IllegalStateException("Top-level 'httpPayloads' requires version: 3");
+        }
         if (dialect != PipelineTemplateDialect.V3 && containsPipelineReference(rootMap.get("steps"))) {
             throw new IllegalStateException("Step property 'pipeline' requires version: 3");
         }
@@ -274,8 +277,103 @@ public class PipelineTemplateConfigLoader {
         validateV3Contracts(typeModel, inputContract, outputContract, steps);
         pipelines.forEach((id, definition) ->
             validateV3Contracts(typeModel, definition.inputContract(), definition.outputContract(), definition.steps()));
+        Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads = readHttpPayloads(
+            rootMap, typeModel, sources, publish);
+        if (!httpPayloads.isEmpty() && (!"REST".equals(transport) || platform != PipelinePlatform.COMPUTE)) {
+            throw new IllegalStateException("httpPayloads requires REST transport and COMPUTE platform");
+        }
         return new PipelineTemplateConfig(version, appName, basePackage, transport, platform, Map.of(), Map.of(), sources,
-            publish, steps, aspects, input, output, materialization, inputContract, outputContract, typeModel, pipelines);
+            publish, steps, aspects, input, output, materialization, inputContract, outputContract,
+            typeModel, pipelines, httpPayloads);
+    }
+
+    private Map<String, PipelineHttpPayloadBoundaryConfig> readHttpPayloads(
+        Map<?, ?> rootMap,
+        PipelineTemplateTypeModel typeModel,
+        Map<String, PipelineObjectSourceConfig> sources,
+        Map<String, PipelineObjectPublishConfig> publish
+    ) {
+        Object raw = rootMap.get("httpPayloads");
+        if (raw == null) {
+            return Map.of();
+        }
+        if (!(raw instanceof Map<?, ?> declarations)) {
+            throw new IllegalStateException("Top-level 'httpPayloads' must be a map");
+        }
+        Map<String, PipelineHttpPayloadBoundaryConfig> parsed = new LinkedHashMap<>();
+        for (var entry : declarations.entrySet()) {
+            String name = stringify(entry.getKey());
+            if (name == null || !name.matches("[a-z][a-z0-9-]*")) {
+                throw new IllegalStateException("HTTP payload boundary name must use lowercase route-safe characters");
+            }
+            if (!(entry.getValue() instanceof Map<?, ?> declaration)) {
+                throw new IllegalStateException("HTTP payload boundary '" + name + "' must be a map");
+            }
+            rejectUnexpectedV3Keys(declaration, "HTTP payload boundary '" + name,
+                "direction", "object", "canonicalType", "referenceField", "contentTypes", "maxBytes",
+                "authorizationScope");
+            PipelineHttpPayloadBoundaryConfig.Direction direction;
+            try {
+                direction = PipelineHttpPayloadBoundaryConfig.Direction.valueOf(
+                    requiredV3String(declaration, "direction", name).toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException failure) {
+                throw new IllegalStateException("HTTP payload boundary '" + name
+                    + "' direction must be upload or download", failure);
+            }
+            String objectName = requiredV3String(declaration, "object", name);
+            PipelineHttpPayloadBoundaryConfig boundary = new PipelineHttpPayloadBoundaryConfig(
+                name, direction, objectName,
+                requiredV3String(declaration, "canonicalType", name),
+                requiredV3String(declaration, "referenceField", name),
+                readStringList(declaration, "contentTypes"),
+                readLong(declaration, "maxBytes", 0L),
+                requiredV3String(declaration, "authorizationScope", name));
+            validateHttpPayloadBoundary(boundary, typeModel, sources, publish);
+            parsed.put(name, boundary);
+        }
+        return Map.copyOf(parsed);
+    }
+
+    private void validateHttpPayloadBoundary(
+        PipelineHttpPayloadBoundaryConfig boundary,
+        PipelineTemplateTypeModel typeModel,
+        Map<String, PipelineObjectSourceConfig> sources,
+        Map<String, PipelineObjectPublishConfig> publish
+    ) {
+        PipelineTemplateTypeDefinition definition = typeModel.definitions().get(boundary.canonicalType());
+        if (!(definition instanceof PipelineTemplateTypeDefinition.RecordType record)) {
+            throw new IllegalStateException("HTTP payload boundary '" + boundary.name()
+                + "' canonicalType must name a record type");
+        }
+        boolean payloadField = record.fields().stream().anyMatch(field ->
+            field.name().equals(boundary.referenceField())
+                && field.type() instanceof PipelineTemplateTypeReference.Scalar scalar
+                && "payload_ref".equals(scalar.name()) && !field.repeated());
+        if (!payloadField) {
+            throw new IllegalStateException("HTTP payload boundary '" + boundary.name()
+                + "' referenceField must name a singular payload_ref field");
+        }
+        if (boundary.direction() == PipelineHttpPayloadBoundaryConfig.Direction.UPLOAD) {
+            PipelineObjectPublishConfig target = publish.get(boundary.objectName());
+            if (target == null || target.binding().isEmpty()) {
+                throw new IllegalStateException("HTTP payload upload '" + boundary.name()
+                    + "' requires a bound object target under publish: " + boundary.objectName());
+            }
+            if (!Set.of("filesystem", "s3").contains(target.provider().toLowerCase(Locale.ROOT))) {
+                throw new IllegalStateException("HTTP payload upload '" + boundary.name()
+                    + "' requires a streaming filesystem or s3 object target");
+            }
+        } else {
+            PipelineObjectSourceConfig source = sources.get(boundary.objectName());
+            if (source == null || source.binding().isEmpty()) {
+                throw new IllegalStateException("HTTP payload download '" + boundary.name()
+                    + "' requires a bound object source under sources: " + boundary.objectName());
+            }
+            if (!Set.of("filesystem", "s3").contains(source.provider().toLowerCase(Locale.ROOT))) {
+                throw new IllegalStateException("HTTP payload download '" + boundary.name()
+                    + "' requires a streaming filesystem or s3 object source");
+            }
+        }
     }
 
     private Map<String, PipelineTemplateDefinition> readV3PipelineDefinitions(Map<?, ?> rootMap, int version) {

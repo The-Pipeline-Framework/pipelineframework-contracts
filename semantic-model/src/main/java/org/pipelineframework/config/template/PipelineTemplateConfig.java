@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.pipelineframework.config.boundary.PipelineInputBoundaryConfig;
+import org.pipelineframework.config.boundary.PipelineHttpPayloadBoundaryConfig;
 import org.pipelineframework.config.boundary.PipelineObjectPublishConfig;
 import org.pipelineframework.config.boundary.PipelineObjectSourceConfig;
 import org.pipelineframework.config.boundary.PipelineOutputBoundaryConfig;
@@ -46,6 +47,7 @@ import org.pipelineframework.config.boundary.PipelineOutputBoundaryConfig;
  * @param materialization field representation aspect policies
  * @param inputContract optional scalar pipeline input contract used by linear templates
  * @param outputContract optional scalar pipeline output assertion used by linear templates
+ * @param httpPayloads generated HTTP payload boundaries
  */
 public record PipelineTemplateConfig(
     int version,
@@ -65,7 +67,8 @@ public record PipelineTemplateConfig(
     String inputContract,
     String outputContract,
     PipelineTemplateTypeModel typeModel,
-    Map<String, PipelineTemplateDefinition> pipelines
+    Map<String, PipelineTemplateDefinition> pipelines,
+    Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads
 ) {
     public PipelineTemplateConfig {
         if (version <= 0) {
@@ -99,6 +102,23 @@ public record PipelineTemplateConfig(
         pipelines = pipelines == null
             ? Map.of()
             : Collections.unmodifiableMap(new LinkedHashMap<>(pipelines));
+        validateMap(httpPayloads, "httpPayloads");
+        httpPayloads = httpPayloads == null ? Map.of() : Map.copyOf(httpPayloads);
+    }
+
+    /** Compatibility constructor before generated HTTP payload boundaries were declared. */
+    public PipelineTemplateConfig(
+        int version, String appName, String basePackage, String transport, PipelinePlatform platform,
+        Map<String, PipelineTemplateMessage> messages, Map<String, PipelineTemplateUnion> unions,
+        Map<String, PipelineObjectSourceConfig> sources, Map<String, PipelineObjectPublishConfig> publish,
+        List<PipelineTemplateStep> steps, Map<String, PipelineTemplateAspect> aspects,
+        PipelineInputBoundaryConfig input, PipelineOutputBoundaryConfig output,
+        PipelineTemplateMaterialization materialization, String inputContract, String outputContract,
+        PipelineTemplateTypeModel typeModel, Map<String, PipelineTemplateDefinition> pipelines
+    ) {
+        this(version, appName, basePackage, transport, platform, messages, unions, sources, publish,
+            steps, aspects, input, output, materialization, inputContract, outputContract,
+            typeModel, pipelines, Map.of());
     }
 
     /**

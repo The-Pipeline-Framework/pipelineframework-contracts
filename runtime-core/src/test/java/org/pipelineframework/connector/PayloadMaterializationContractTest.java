@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.Test;
 import org.pipelineframework.repository.PayloadReference;
 
@@ -40,6 +41,20 @@ class PayloadMaterializationContractTest {
         IllegalStateException failure = assertThrows(
             IllegalStateException.class, () -> changed.requireObjectSourceOperation(origin));
         assertEquals("connector payload binding provenance changed for 'documents'", failure.getMessage());
+    }
+
+    @Test
+    void streamingReadRejectsChangedBindingBeforeProviderAccess() {
+        ConnectorBindingRegistry first = registry("/data/one");
+        ConnectorBindingRegistry changed = registry("/data/two");
+        PayloadReference owned = repositoryReference().withConnectorOrigin(
+            first.objectSourceOrigin(BINDING, "read", 1));
+
+        CompletionException failure = assertThrows(CompletionException.class, () ->
+            changed.openRead(owned).toCompletableFuture().join());
+        assertEquals("connector payload binding provenance changed for 'documents'",
+            failure.getCause().getMessage());
+        assertThrows(IllegalArgumentException.class, () -> changed.openRead(repositoryReference()));
     }
 
     private ConnectorBindingRegistry registry(String root) {

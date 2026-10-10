@@ -11,6 +11,7 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.pipelineframework.connector.ConnectorProviderId;
+import org.pipelineframework.config.boundary.PipelineHttpPayloadBoundaryConfig;
 import org.pipelineframework.connector.ConnectorProviderManifestCatalog;
 import org.pipelineframework.config.pipeline.PipelineYamlConfigLoader;
 import org.pipelineframework.materialization.MaterializationAction;
@@ -26,6 +27,97 @@ class PipelineTemplateConfigLoaderTest {
 
     @TempDir
     Path tempDir;
+
+    @Test
+    void pinsV3HttpPayloadBoundaryToCanonicalFieldAndBoundOperations() throws Exception {
+        Path configPath = tempDir.resolve("http-payloads.yaml");
+        Files.writeString(configPath, """
+            version: 3
+            appName: Payload boundaries
+            basePackage: com.example.payload
+            transport: REST
+            platform: COMPUTE
+            contract: { input: Request, output: Result }
+            types:
+              Request:
+                fields:
+                  - [invoice, payload_ref]
+              Result:
+                fields:
+                  - [artifact, payload_ref]
+            sources:
+              artifacts:
+                kind: object
+                provider: filesystem
+                binding: files
+            publish:
+              uploads:
+                kind: object
+                provider: filesystem
+                binding: files
+            httpPayloads:
+              invoice-upload:
+                direction: upload
+                object: uploads
+                canonicalType: Request
+                referenceField: invoice
+                contentTypes: [application/pdf]
+                maxBytes: 1048576
+                authorizationScope: invoice
+              artifact-download:
+                direction: download
+                object: artifacts
+                canonicalType: Result
+                referenceField: artifact
+                contentTypes: [application/pdf]
+                authorizationScope: invoice
+            steps: []
+            """);
+
+        PipelineTemplateConfig config = new PipelineTemplateConfigLoader().load(configPath);
+
+        assertEquals(PipelineHttpPayloadBoundaryConfig.Direction.UPLOAD,
+            config.httpPayloads().get("invoice-upload").direction());
+        assertEquals("uploads", config.httpPayloads().get("invoice-upload").objectName());
+        assertEquals(PipelineHttpPayloadBoundaryConfig.Direction.DOWNLOAD,
+            config.httpPayloads().get("artifact-download").direction());
+    }
+
+    @Test
+    void rejectsHttpPayloadBoundaryWithoutCanonicalPayloadField() throws Exception {
+        Path configPath = tempDir.resolve("invalid-http-payload.yaml");
+        Files.writeString(configPath, """
+            version: 3
+            appName: Payload boundaries
+            basePackage: com.example.payload
+            transport: REST
+            platform: COMPUTE
+            contract: { input: Request, output: Request }
+            types:
+              Request:
+                fields:
+                  - [invoice, string]
+            publish:
+              uploads:
+                kind: object
+                provider: filesystem
+                binding: files
+            httpPayloads:
+              invoice-upload:
+                direction: upload
+                object: uploads
+                canonicalType: Request
+                referenceField: invoice
+                contentTypes: [application/pdf]
+                maxBytes: 1048576
+                authorizationScope: invoice
+            steps: []
+            """);
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+            () -> new PipelineTemplateConfigLoader().load(configPath));
+        assertTrue(failure.getMessage().contains("singular payload_ref field"));
+    }
 
     @Test
     void loadsV3GroupedObjectSelectionAndBindingProvenance() throws Exception {

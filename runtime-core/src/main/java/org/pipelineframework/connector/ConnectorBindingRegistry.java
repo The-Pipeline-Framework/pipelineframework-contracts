@@ -375,6 +375,24 @@ public final class ConnectorBindingRegistry {
         });
     }
 
+    /**
+     * Resolves an already-authorised connector reference for streaming without materialising bytes.
+     * The HTTP host must check the caller's tenant and scope before invoking this method.
+     */
+    public CompletionStage<ObjectReadSession> openRead(PayloadReference reference) {
+        Objects.requireNonNull(reference, "payload reference must not be null");
+        ConnectorPayloadOrigin origin = reference.connectorOrigin().orElseThrow(() ->
+            new IllegalArgumentException("payload reference is not connector-owned"));
+        final ObjectSourceOperation operation;
+        try {
+            operation = requireObjectSourceOperation(origin);
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedFuture(failure);
+        }
+        return operation.openRead(reference).thenApply(session ->
+            Objects.requireNonNull(session, "object source read session must not be null"));
+    }
+
     private BindingSlot requireSlot(ConnectorBindingName name) {
         Objects.requireNonNull(name, "connector binding name must not be null");
         BindingSlot binding = bindings.get(name);
