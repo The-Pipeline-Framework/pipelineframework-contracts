@@ -279,8 +279,20 @@ public class PipelineTemplateConfigLoader {
             validateV3Contracts(typeModel, definition.inputContract(), definition.outputContract(), definition.steps()));
         Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads = readHttpPayloads(
             rootMap, typeModel, sources, publish);
-        if (!httpPayloads.isEmpty() && (!"REST".equals(transport) || platform != PipelinePlatform.COMPUTE)) {
-            throw new IllegalStateException("httpPayloads requires REST transport and COMPUTE platform");
+        if (!httpPayloads.isEmpty() && (!"REST".equals(transport)
+            || (platform != PipelinePlatform.COMPUTE && platform != PipelinePlatform.FUNCTION))) {
+            throw new IllegalStateException("httpPayloads requires REST transport and COMPUTE or FUNCTION platform");
+        }
+        if (platform == PipelinePlatform.FUNCTION) {
+            httpPayloads.values().forEach(boundary -> {
+                String provider = boundary.direction() == PipelineHttpPayloadBoundaryConfig.Direction.UPLOAD
+                    ? publish.get(boundary.objectName()).provider()
+                    : sources.get(boundary.objectName()).provider();
+                if (!"s3".equalsIgnoreCase(provider)) {
+                    throw new IllegalStateException("HTTP payload boundary '" + boundary.name()
+                        + "' on FUNCTION requires an S3 object provider for delegated transfer");
+                }
+            });
         }
         return new PipelineTemplateConfig(version, appName, basePackage, transport, platform, Map.of(), Map.of(), sources,
             publish, steps, aspects, input, output, materialization, inputContract, outputContract,
