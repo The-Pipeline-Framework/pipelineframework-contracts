@@ -39,6 +39,7 @@ public final class OwnedPayloadTransfer {
     public static final String OWNER_BINDING = "tpf.payload.owner.binding";
     public static final String OWNER_ORIGIN = "tpf.payload.owner.origin-sha256";
     private static final int CHUNK_BYTES = 64 * 1024;
+    private static final long DELEGATED_WAIT_SECONDS = 300;
     private final ConnectorBindingRegistry bindings;
     private final ConnectorRuntimeContext runtimeContext;
     private final PayloadBoundaryAuthorizer authorizer;
@@ -70,7 +71,10 @@ public final class OwnedPayloadTransfer {
         }
         Objects.requireNonNull(mediaType, "upload media type must not be null");
         requireMediaType(boundary, mediaType);
-        if (bytes < 1 || bytes > boundary.maxBytes() || sha256 == null || !sha256.matches("[a-fA-F0-9]{64}")) {
+        if (bytes > boundary.maxBytes()) {
+            throw new PayloadTooLargeException("upload exceeds configured maximum bytes");
+        }
+        if (bytes < 1 || sha256 == null || !sha256.matches("[a-fA-F0-9]{64}")) {
             throw new IllegalArgumentException("invalid delegated upload length or SHA-256 checksum");
         }
         if (idempotencyKey == null || !idempotencyKey.matches("[A-Za-z0-9._:-]{1,128}")) {
@@ -160,13 +164,19 @@ public final class OwnedPayloadTransfer {
 
     private static <T> T awaitDelegated(CompletionStage<T> operation) {
         try {
-            return operation.toCompletableFuture().join();
-        } catch (CompletionException failure) {
+            // Keep the provider stage alive: it owns cleanup of work that finishes after this deadline.
+            return operation.toCompletableFuture().get(DELEGATED_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (ExecutionException failure) {
             if (failure.getCause() instanceof RuntimeException cause) {
                 cause.addSuppressed(failure);
                 throw cause;
             }
-            throw failure;
+            throw new IllegalStateException("delegated payload operation failed", failure);
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("delegated payload operation was interrupted", failure);
+        } catch (TimeoutException failure) {
+            throw new IllegalStateException("delegated payload operation timed out", failure);
         }
     }
 
@@ -289,14 +299,27 @@ public final class OwnedPayloadTransfer {
         if (!(provider instanceof DelegatedPayloadSource delegated)) {
             throw new IllegalStateException("object source does not support delegated downloads");
         }
+        java.time.Duration lifetime = java.time.Duration.ofMinutes(5);
+        java.time.Instant requestedAt = runtimeContext.clock().instant();
         DelegatedPayloadSource.DownloadCapability capability =
-            awaitDelegated(delegated.authorizeDownload(reference, java.time.Duration.ofMinutes(5)));
+            awaitDelegated(delegated.authorizeDownload(reference, lifetime));
+        requireDelegatedCapability(reference, capability, requestedAt, runtimeContext.clock().instant(), lifetime);
+        return capability;
+    }
+
+    static void requireDelegatedCapability(PayloadReference reference,
+                                           DelegatedPayloadSource.DownloadCapability capability,
+                                           java.time.Instant requestedAt, java.time.Instant now,
+                                           java.time.Duration lifetime) {
         if (capability == null || capability.bytes() != reference.sizeBytes()
             || (reference.checksum() != null
                 && !reference.checksum().equalsIgnoreCase(capability.sha256()))) {
             throw new SecurityException("delegated download capability differs from payload reference");
         }
-        return capability;
+        if (!capability.expiresAt().isAfter(now)
+            || capability.expiresAt().isAfter(requestedAt.plus(lifetime))) {
+            throw new SecurityException("delegated download capability has an invalid lifetime");
+        }
     }
 
     public static final class DownloadLease implements AutoCloseable {

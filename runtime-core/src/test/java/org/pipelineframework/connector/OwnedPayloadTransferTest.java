@@ -7,6 +7,8 @@ import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -15,12 +17,45 @@ import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.pipelineframework.config.boundary.PipelineHttpPayloadBoundaryConfig;
+import org.pipelineframework.config.boundary.PipelineObjectNamingConfig;
+import org.pipelineframework.config.boundary.PipelineObjectPublishConfig;
+import org.pipelineframework.config.boundary.PipelineObjectPublishGroupingConfig;
+import org.pipelineframework.config.boundary.PipelineObjectPublishPayloadConfig;
 import org.pipelineframework.config.boundary.PipelineObjectSourceConfig;
 import org.pipelineframework.repository.PayloadReference;
 
 class OwnedPayloadTransferTest {
     @TempDir
     Path tempDir;
+
+    @Test
+    void oversizedDelegatedInitiationFailsBeforeProviderAccess() {
+        PipelineHttpPayloadBoundaryConfig boundary = new PipelineHttpPayloadBoundaryConfig(
+            "invoice", PipelineHttpPayloadBoundaryConfig.Direction.UPLOAD, "invoices",
+            "Invoice", "payload_ref", List.of("application/pdf"), 1, "invoice.write");
+        PipelineObjectPublishConfig target = new PipelineObjectPublishConfig(
+            "invoices", "object", "s3", Optional.of("objects"), Map.of(),
+            PipelineObjectNamingConfig.defaults(), PipelineObjectPublishPayloadConfig.defaults(),
+            PipelineObjectPublishGroupingConfig.defaults());
+        OwnedPayloadTransfer transfer = new OwnedPayloadTransfer(ConnectorBindingRegistry.empty(),
+            ConnectorRuntimeContext.empty(), request -> new PayloadBoundaryOwner("tenant", "scope"));
+
+        assertThrows(PayloadTooLargeException.class, () -> transfer.initiateDelegatedUpload(
+            boundary, target, "principal", "tenant", "scope", "application/pdf", 2,
+            "0".repeat(64), "retry-1"));
+    }
+
+    @Test
+    void delegatedDownloadRejectsExpiredAndOverlongCapabilities() {
+        Instant requestedAt = Instant.parse("2026-01-01T00:00:00Z");
+        PayloadReference reference = reference("s3", "receipts", "key");
+        assertThrows(SecurityException.class, () -> OwnedPayloadTransfer.requireDelegatedCapability(
+            reference, new DelegatedPayloadSource.DownloadCapability("https://example.test/get", Map.of(),
+                requestedAt, 1, "00"), requestedAt, requestedAt, Duration.ofMinutes(5)));
+        assertThrows(SecurityException.class, () -> OwnedPayloadTransfer.requireDelegatedCapability(
+            reference, new DelegatedPayloadSource.DownloadCapability("https://example.test/get", Map.of(),
+                requestedAt.plusSeconds(301), 1, "00"), requestedAt, requestedAt, Duration.ofMinutes(5)));
+    }
 
     @Test
     void rejectsASelectedSourceWithAnotherBoundaryName() {

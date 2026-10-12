@@ -32,11 +32,17 @@ public interface DelegatedPayloadTarget {
         }
     }
 
+    /**
+     * The token must bind the requested size, SHA-256, target, and owner to the reservation.
+     * A provider owns work that completes after the caller's wait deadline. It must reject expired
+     * reservations and reclaim abandoned backing uploads through its storage lifecycle or on retry.
+     */
     CompletionStage<Reservation> initiate(Request request);
 
     CompletionStage<PartCapability> part(PipelineObjectPublishConfig target, String token,
                                          Map<String, String> expectedOwner, int partNumber);
 
+    /** Verifies the stored bytes and SHA-256 against the initiation request before issuing a reference. */
     CompletionStage<ObjectWriteResult> complete(PipelineObjectPublishConfig target, String token,
                                                 Map<String, String> expectedOwner);
 
