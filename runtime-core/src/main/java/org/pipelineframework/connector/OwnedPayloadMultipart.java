@@ -12,6 +12,7 @@ import java.util.Objects;
 public final class OwnedPayloadMultipart extends InputStream {
     private static final int MAX_BOUNDARY_BYTES = 70;
     private static final int MAX_HEADER_BYTES = 8192;
+    private static final int READ_CHUNK_BYTES = 64 * 1024;
     private final PushbackInputStream input;
     private final byte[] delimiter;
     private final String mediaType;
@@ -21,7 +22,8 @@ public final class OwnedPayloadMultipart extends InputStream {
         Objects.requireNonNull(request, "request stream must not be null");
         String boundary = boundary(contentType);
         delimiter = ("\r\n--" + boundary).getBytes(StandardCharsets.US_ASCII);
-        input = new PushbackInputStream(new BufferedInputStream(request, 64 * 1024), delimiter.length + 2);
+        input = new PushbackInputStream(new BufferedInputStream(request, READ_CHUNK_BYTES),
+            READ_CHUNK_BYTES + delimiter.length + 2);
         expect(("--" + boundary + "\r\n").getBytes(StandardCharsets.US_ASCII));
         String disposition = null;
         String partType = null;
@@ -95,11 +97,24 @@ public final class OwnedPayloadMultipart extends InputStream {
     public int read(byte[] bytes, int offset, int length) throws IOException {
         Objects.checkFromIndexSize(offset, length, bytes.length);
         if (length == 0) return 0;
-        int count = 0;
-        while (count < length) {
+        if (finished) return -1;
+        int count = input.read(bytes, offset, Math.min(length, READ_CHUNK_BYTES));
+        if (count < 0) throw malformed("multipart body ended before its closing boundary");
+        if (count == 0) {
             int next = read();
-            if (next < 0) return count == 0 ? -1 : count;
-            bytes[offset + count++] = (byte) next;
+            if (next < 0) return -1;
+            bytes[offset] = (byte) next;
+            return 1;
+        }
+        for (int index = 0; index < count; index++) {
+            if (bytes[offset + index] == '\r') {
+                input.unread(bytes, offset + index, count - index);
+                if (index > 0) return index;
+                int next = read();
+                if (next < 0) return -1;
+                bytes[offset] = (byte) next;
+                return 1;
+            }
         }
         return count;
     }

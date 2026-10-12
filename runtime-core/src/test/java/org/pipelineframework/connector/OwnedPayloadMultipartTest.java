@@ -27,6 +27,16 @@ class OwnedPayloadMultipartTest {
     }
 
     @Test
+    void streamsLargePartAcrossBulkReadsAndPreservesCarriageReturns() throws Exception {
+        String file = "a".repeat(65_530) + "\rnot-a-boundary" + "b".repeat(65_530);
+        String request = "--b\r\nContent-Disposition: form-data; name=\"file\"\r\n"
+            + "Content-Type: text/plain\r\n\r\n" + file + "\r\n--b--\r\n";
+        try (var multipart = open(request)) {
+            assertArrayEquals(file.getBytes(StandardCharsets.US_ASCII), multipart.readAllBytes());
+        }
+    }
+
+    @Test
     void rejectsAnotherPartAndTruncatedBody() throws Exception {
         String headers = "--b\r\nContent-Disposition: form-data; name=\"file\"\r\n"
             + "Content-Type: text/plain\r\n\r\ncontent";

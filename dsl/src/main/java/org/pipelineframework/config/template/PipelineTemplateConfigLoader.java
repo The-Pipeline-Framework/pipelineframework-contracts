@@ -278,21 +278,10 @@ public class PipelineTemplateConfigLoader {
         pipelines.forEach((id, definition) ->
             validateV3Contracts(typeModel, definition.inputContract(), definition.outputContract(), definition.steps()));
         Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads = readHttpPayloads(
-            rootMap, typeModel, sources, publish);
+            rootMap, typeModel, sources, publish, platform);
         if (!httpPayloads.isEmpty() && (!"REST".equals(transport)
             || (platform != PipelinePlatform.COMPUTE && platform != PipelinePlatform.FUNCTION))) {
             throw new IllegalStateException("httpPayloads requires REST transport and COMPUTE or FUNCTION platform");
-        }
-        if (platform == PipelinePlatform.FUNCTION) {
-            httpPayloads.values().forEach(boundary -> {
-                String provider = boundary.direction() == PipelineHttpPayloadBoundaryConfig.Direction.UPLOAD
-                    ? publish.get(boundary.objectName()).provider()
-                    : sources.get(boundary.objectName()).provider();
-                if (!"s3".equalsIgnoreCase(provider)) {
-                    throw new IllegalStateException("HTTP payload boundary '" + boundary.name()
-                        + "' on FUNCTION requires an S3 object provider for delegated transfer");
-                }
-            });
         }
         return new PipelineTemplateConfig(version, appName, basePackage, transport, platform, Map.of(), Map.of(), sources,
             publish, steps, aspects, input, output, materialization, inputContract, outputContract,
@@ -303,7 +292,8 @@ public class PipelineTemplateConfigLoader {
         Map<?, ?> rootMap,
         PipelineTemplateTypeModel typeModel,
         Map<String, PipelineObjectSourceConfig> sources,
-        Map<String, PipelineObjectPublishConfig> publish
+        Map<String, PipelineObjectPublishConfig> publish,
+        PipelinePlatform platform
     ) {
         Object raw = rootMap.get("httpPayloads");
         if (raw == null) {
@@ -349,7 +339,7 @@ public class PipelineTemplateConfigLoader {
                 throw new IllegalStateException("HTTP payload boundary '" + name + "' is invalid: "
                     + failure.getMessage(), failure);
             }
-            validateHttpPayloadBoundary(boundary, typeModel, sources, publish);
+            validateHttpPayloadBoundary(boundary, typeModel, sources, publish, platform);
             parsed.put(name, boundary);
         }
         return Map.copyOf(parsed);
@@ -359,7 +349,8 @@ public class PipelineTemplateConfigLoader {
         PipelineHttpPayloadBoundaryConfig boundary,
         PipelineTemplateTypeModel typeModel,
         Map<String, PipelineObjectSourceConfig> sources,
-        Map<String, PipelineObjectPublishConfig> publish
+        Map<String, PipelineObjectPublishConfig> publish,
+        PipelinePlatform platform
     ) {
         PipelineTemplateTypeDefinition.RecordType record =
             recordType(typeModel, boundary.canonicalType(), "HTTP payload boundary '" + boundary.name() + "'");
@@ -381,6 +372,10 @@ public class PipelineTemplateConfigLoader {
                 throw new IllegalStateException("HTTP payload upload '" + boundary.name()
                     + "' requires a streaming filesystem or s3 object target");
             }
+            if (platform == PipelinePlatform.FUNCTION && !"s3".equalsIgnoreCase(target.provider())) {
+                throw new IllegalStateException("HTTP payload boundary '" + boundary.name()
+                    + "' on FUNCTION requires an S3 object provider for delegated transfer");
+            }
         } else {
             PipelineObjectSourceConfig source = sources.get(boundary.objectName());
             if (source == null || source.binding().isEmpty()) {
@@ -390,6 +385,10 @@ public class PipelineTemplateConfigLoader {
             if (!Set.of("filesystem", "s3").contains(source.provider().toLowerCase(Locale.ROOT))) {
                 throw new IllegalStateException("HTTP payload download '" + boundary.name()
                     + "' requires a streaming filesystem or s3 object source");
+            }
+            if (platform == PipelinePlatform.FUNCTION && !"s3".equalsIgnoreCase(source.provider())) {
+                throw new IllegalStateException("HTTP payload boundary '" + boundary.name()
+                    + "' on FUNCTION requires an S3 object provider for delegated transfer");
             }
         }
     }
