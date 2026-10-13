@@ -37,8 +37,30 @@ public record ExecutionRecord<I, R>(
     Optional<String> failedCommandId,
     Optional<String> redriveTargetCommandId,
     Optional<String> redriveReason,
-    Optional<PagedExecutionState> pagingState
+    Optional<PagedExecutionState> pagingState,
+    Optional<String> awaitOccurrenceCause
 ) {
+    /** Compatibility constructor for records predating Await occurrence fencing. */
+    public ExecutionRecord(
+        String tenantId, String executionId, String executionKey, String pipelineId,
+        String contractVersion, String releaseVersion, ExecutionResultShape resultShape,
+        ExecutionStatus status, long version, int currentStepIndex, int attempt,
+        String leaseOwner, long leaseExpiresEpochMs, long nextDueEpochMs,
+        String lastTransitionKey, I inputPayload, String awaitUnitId, R resultPayload,
+        String errorCode, String errorMessage, long createdAtEpochMs, long updatedAtEpochMs,
+        long ttlEpochS, long firstCircuitDeferredAtEpochMs, int circuitDeferralCount,
+        String circuitIdentity, ExecutionRedriveIntent redriveIntent, int failedStepIndex,
+        Optional<String> failedCommandId, Optional<String> redriveTargetCommandId,
+        Optional<String> redriveReason, Optional<PagedExecutionState> pagingState
+    ) {
+        this(tenantId, executionId, executionKey, pipelineId, contractVersion, releaseVersion,
+            resultShape, status, version, currentStepIndex, attempt, leaseOwner,
+            leaseExpiresEpochMs, nextDueEpochMs, lastTransitionKey, inputPayload, awaitUnitId,
+            resultPayload, errorCode, errorMessage, createdAtEpochMs, updatedAtEpochMs, ttlEpochS,
+            firstCircuitDeferredAtEpochMs, circuitDeferralCount, circuitIdentity, redriveIntent,
+            failedStepIndex, failedCommandId, redriveTargetCommandId, redriveReason, pagingState,
+            Optional.empty());
+    }
     public ExecutionRecord(
         String tenantId, String executionId, String executionKey, String pipelineId,
         String contractVersion, String releaseVersion, ExecutionResultShape resultShape,
@@ -65,6 +87,12 @@ public record ExecutionRecord<I, R>(
         redriveTargetCommandId = Optional.ofNullable(redriveTargetCommandId).orElseGet(Optional::empty);
         redriveReason = Optional.ofNullable(redriveReason).orElseGet(Optional::empty);
         pagingState = Optional.ofNullable(pagingState).orElseGet(Optional::empty);
+        awaitOccurrenceCause = Optional.ofNullable(awaitOccurrenceCause).orElseGet(Optional::empty);
+        awaitOccurrenceCause.ifPresent(value -> {
+            if (value.isBlank()) {
+                throw new IllegalArgumentException("Await occurrence cause must not be blank");
+            }
+        });
         if (redriveIntent == ExecutionRedriveIntent.RETRY_FAILED_COMMAND) {
             if (failedStepIndex < 0) {
                 throw new IllegalArgumentException(
@@ -404,6 +432,16 @@ public record ExecutionRecord<I, R>(
             failedCommandId,
             redriveTargetCommandId,
             redriveReason,
-            pagingState);
+            pagingState,
+            awaitOccurrenceCause);
+    }
+
+    public ExecutionRecord<I, R> withAwaitOccurrenceCause(Optional<String> cause) {
+        return new ExecutionRecord<>(tenantId, executionId, executionKey, pipelineId, contractVersion,
+            releaseVersion, resultShape, status, version, currentStepIndex, attempt, leaseOwner,
+            leaseExpiresEpochMs, nextDueEpochMs, lastTransitionKey, inputPayload, awaitUnitId,
+            resultPayload, errorCode, errorMessage, createdAtEpochMs, updatedAtEpochMs, ttlEpochS,
+            firstCircuitDeferredAtEpochMs, circuitDeferralCount, circuitIdentity, redriveIntent,
+            failedStepIndex, failedCommandId, redriveTargetCommandId, redriveReason, pagingState, cause);
     }
 }

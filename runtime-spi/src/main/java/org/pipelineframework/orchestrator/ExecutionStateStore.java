@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import org.pipelineframework.awaitable.AwaitUnitReleaseAcknowledgement;
 
 /**
  * SPI for async execution state persistence.
@@ -269,7 +270,22 @@ public interface ExecutionStateStore {
     }
 
     /**
+     * Strongly reads the immutable first release acknowledgement for one tenant/execution/unit.
+     * It is retained independently of later parent Await units for the stored semantic horizon;
+     * TTL zero preserves the existing no-expiry contract. Empty is an unobserved acknowledgement,
+     * never authority to infer release from the parent's current status or to retire an admission.
+     */
+    Uni<Optional<AwaitUnitReleaseAcknowledgement>> getAwaitUnitReleaseAcknowledgement(
+        String tenantId, String executionId, String unitId);
+
+    /**
      * Stores a completed await payload and makes the execution due for continuation.
+     * The winning normal execution CAS must atomically retain the immutable first
+     * {@link AwaitUnitReleaseAcknowledgement} for this tenant/execution/unit, including
+     * release pins, the released parent version, and CONTINUATION_QUEUED disposition. Duplicate release must not replace its
+     * timestamp or identity. It remains queryable after the parent enters a later Await unit
+     * within its semantic retention. Unsupported providers must fail closed; separate writes
+     * after the parent transition do not satisfy this contract.
      *
      * <p>This method matches by {@link ExecutionStatus#WAITING_EXTERNAL} plus
      * {@code awaitUnitId}, not by expected version. Completion admission is idempotent and can race
@@ -292,7 +308,13 @@ public interface ExecutionStateStore {
 
     /**
      * Replaces a waiting execution's input with itemized continuation output and queues the parent
-     * at {@code nextStepIndex}.
+     * at {@code nextStepIndex}. The winning normal execution CAS must atomically retain the
+     * immutable first {@link AwaitUnitReleaseAcknowledgement}, with release pins and the
+     * released parent version, and CONTINUATION_QUEUED disposition. The acknowledgement is
+     * shared by all completions of this unit;
+     * duplicate release must not rewrite it, and later Await units must not overwrite it.
+     * Unsupported providers must fail closed; separately sequenced acknowledgement writes
+     * do not satisfy this contract.
      *
      * <p>{@code markAwaitItemContinuationsCompleted} is an idempotent release operation for
      * itemized await continuations. Implementations should match the execution by
@@ -382,6 +404,12 @@ public interface ExecutionStateStore {
 
     /**
      * Marks an execution as failed or dead-lettered if expected version matches.
+     * When the winning normal execution CAS leaves WAITING_EXTERNAL with a nonblank current
+     * Await unit, it must atomically retain that unit's immutable first release acknowledgement
+     * with {@link org.pipelineframework.awaitable.AwaitReleaseDisposition#TERMINAL_FAILED}.
+     * Non-Await failure transitions do not create an Await acknowledgement. Duplicate failure
+     * or later Await units must not rewrite the retained fact; separately sequenced writes after
+     * the parent CAS do not satisfy this contract.
      *
      * @param tenantId tenant identifier
      * @param executionId execution identifier
@@ -405,6 +433,7 @@ public interface ExecutionStateStore {
 
     /**
      * Marks an execution terminal while retaining the pipeline step that actually failed.
+     * The atomic Await unit acknowledgement obligation of the required failure operation applies.
      */
     default Uni<Optional<ExecutionRecord<Object, Object>>> markTerminalFailure(
         String tenantId,
@@ -421,7 +450,10 @@ public interface ExecutionStateStore {
             errorCode, errorMessage, nowEpochMs);
     }
 
-    /** Marks an execution terminal while retaining both resume and logical Command identities. */
+    /**
+     * Marks an execution terminal while retaining both resume and logical Command identities.
+     * The atomic Await unit acknowledgement obligation of the required failure operation applies.
+     */
     default Uni<Optional<ExecutionRecord<Object, Object>>> markTerminalFailure(
         String tenantId,
         String executionId,

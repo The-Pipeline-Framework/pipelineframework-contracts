@@ -58,6 +58,11 @@ public record AwaitUnitRecord(
         if (stepIndex < 0) {
             throw new IllegalArgumentException("stepIndex must not be negative");
         }
+        AwaitUnitOccurrence.fromUnitId(unitId).ifPresent(occurrence -> {
+            if (!occurrence.matches(tenantId, executionId, stepId, stepIndex)) {
+                throw new IllegalArgumentException("Await occurrence differs from unit scope");
+            }
+        });
         if (cardinality == null || cardinality.isBlank()) {
             throw new IllegalArgumentException("cardinality must not be blank");
         }
