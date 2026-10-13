@@ -1,6 +1,8 @@
 package org.pipelineframework.awaitable;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.Objects;
 
 /**
  * Durable projection for a single await interaction.
@@ -55,8 +57,25 @@ public record AwaitInteractionRecord(
     long createdAtEpochMs,
     long updatedAtEpochMs,
     long ttlEpochS,
-    String transportOutputType
+    String transportOutputType,
+    Optional<Object> commandAcknowledgement,
+    Optional<Object> stagedCompletionPayload
 ) {
+    /** Compatibility constructor for interactions created before acknowledgement-aware Command completion. */
+    public AwaitInteractionRecord(
+        String tenantId, String executionId, String stepId, int stepIndex, String outputType,
+        String interactionId, String correlationId, String causationId, String idempotencyKey,
+        long version, AwaitInteractionStatus status, Object requestPayload, Object responsePayload,
+        String unitId, Integer itemIndex, String actor, String assignee, String group,
+        String transportType, Map<String, Object> transportMetadata, long deadlineEpochMs,
+        long createdAtEpochMs, long updatedAtEpochMs, long ttlEpochS, String transportOutputType
+    ) {
+        this(tenantId, executionId, stepId, stepIndex, outputType, interactionId, correlationId,
+            causationId, idempotencyKey, version, status, requestPayload, responsePayload,
+            unitId, itemIndex, actor, assignee, group, transportType, transportMetadata,
+            deadlineEpochMs, createdAtEpochMs, updatedAtEpochMs, ttlEpochS, transportOutputType,
+            Optional.empty(), Optional.empty());
+    }
     public AwaitInteractionRecord(
         String tenantId,
         String executionId,
@@ -86,7 +105,7 @@ public record AwaitInteractionRecord(
         this(tenantId, executionId, stepId, stepIndex, outputType, interactionId, correlationId, causationId,
             idempotencyKey, version, status, requestPayload, responsePayload, unitId, itemIndex, actor, assignee,
             group, transportType, transportMetadata, deadlineEpochMs, createdAtEpochMs, updatedAtEpochMs,
-            ttlEpochS, outputType);
+            ttlEpochS, outputType, Optional.empty(), Optional.empty());
     }
     public AwaitInteractionRecord(
         String tenantId,
@@ -137,7 +156,7 @@ public record AwaitInteractionRecord(
             createdAtEpochMs,
             updatedAtEpochMs,
             ttlEpochS,
-            outputType);
+            outputType, Optional.empty(), Optional.empty());
     }
 
     public AwaitInteractionRecord {
@@ -175,6 +194,9 @@ public record AwaitInteractionRecord(
             throw new IllegalArgumentException("itemIndex must be non-negative when set");
         }
         transportMetadata = transportMetadata == null ? Map.of() : Map.copyOf(transportMetadata);
+        // Older durable JSON records lack these fields.
+        commandAcknowledgement = commandAcknowledgement == null ? Optional.empty() : commandAcknowledgement;
+        stagedCompletionPayload = stagedCompletionPayload == null ? Optional.empty() : stagedCompletionPayload;
         transportOutputType = transportOutputType == null || transportOutputType.isBlank()
             ? outputType
             : transportOutputType;
@@ -187,6 +209,87 @@ public record AwaitInteractionRecord(
     /** The completion gate is persisted in the existing interaction. */
     public boolean commandCallback() {
         return "CONNECTOR_CALLBACK".equals(transportMetadata.get("completionMode"));
+    }
+
+    /** Explicit opt-in; absent mode retains the legacy callback contract. */
+    public boolean acknowledgementAwareCommandCallback() {
+        return commandCallback() && "ACKNOWLEDGEMENT_REQUIRED".equals(transportMetadata.get("commandCompletionMode"));
+    }
+
+    /** Guards the store CAS against changing ownership, pinned contract, or terminal authority. */
+    public boolean permitsCommandCompletionReplacement(AwaitInteractionRecord next) {
+        if (!acknowledgementAwareCommandCallback() || next == null
+            || !next.acknowledgementAwareCommandCallback() || status.terminal()
+            || next.version != version + 1 || next.updatedAtEpochMs < updatedAtEpochMs
+            || !Objects.equals(tenantId, next.tenantId)
+            || !Objects.equals(executionId, next.executionId)
+            || !Objects.equals(stepId, next.stepId)
+            || stepIndex != next.stepIndex
+            || !Objects.equals(outputType, next.outputType)
+            || !Objects.equals(interactionId, next.interactionId)
+            || !Objects.equals(correlationId, next.correlationId)
+            || !Objects.equals(causationId, next.causationId)
+            || !Objects.equals(idempotencyKey, next.idempotencyKey)
+            || !Objects.equals(requestPayload, next.requestPayload)
+            || !Objects.equals(unitId, next.unitId)
+            || !Objects.equals(itemIndex, next.itemIndex)
+            || !Objects.equals(assignee, next.assignee)
+            || !Objects.equals(group, next.group)
+            || !Objects.equals(transportType, next.transportType)
+            || !Objects.equals(transportOutputType, next.transportOutputType)
+            || deadlineEpochMs != next.deadlineEpochMs
+            || createdAtEpochMs != next.createdAtEpochMs
+            || ttlEpochS != next.ttlEpochS
+            || !Objects.equals(transportMetadata.get("completionMode"), next.transportMetadata.get("completionMode"))
+            || !Objects.equals(transportMetadata.get("callbackSelection"), next.transportMetadata.get("callbackSelection"))
+            || !Objects.equals(transportMetadata.get("commandCompletionMode"), next.transportMetadata.get("commandCompletionMode"))
+            || !Objects.equals(transportMetadata.get("commandAcknowledgementType"), next.transportMetadata.get("commandAcknowledgementType"))
+            || !Objects.equals(transportMetadata.get("tpf.await.completion.projector"),
+                next.transportMetadata.get("tpf.await.completion.projector"))) {
+            return false;
+        }
+        if (commandAcknowledgement.isPresent()
+            && !commandAcknowledgement.equals(next.commandAcknowledgement)) {
+            return false;
+        }
+        if (stagedCompletionPayload.isPresent() && next.stagedCompletionPayload.isPresent()
+            && !stagedCompletionPayload.equals(next.stagedCompletionPayload)) {
+            return false;
+        }
+        if (stagedCompletionPayload.isPresent() && next.stagedCompletionPayload.isEmpty()
+            && (next.status != AwaitInteractionStatus.DISPATCHED
+                || !Boolean.TRUE.equals(next.transportMetadata.get("rejectedEarlyCallback")))) {
+            return false;
+        }
+        if (next.commandAcknowledgement.isPresent()
+            && !"SUCCEEDED".equals(next.transportMetadata.get("commandSettlement"))) {
+            return false;
+        }
+        if (next.status == AwaitInteractionStatus.COMPLETION_OBSERVED
+            && next.stagedCompletionPayload.isEmpty()) {
+            return false;
+        }
+        if (next.status == AwaitInteractionStatus.COMPLETED
+            && (next.commandAcknowledgement.isEmpty() || next.stagedCompletionPayload.isEmpty()
+                || next.responsePayload == null)) {
+            return false;
+        }
+        return switch (status) {
+            case DISPATCHING -> next.status == AwaitInteractionStatus.DISPATCHED
+                || next.status == AwaitInteractionStatus.COMPLETION_OBSERVED
+                || next.status == AwaitInteractionStatus.WAITING
+                || next.status == AwaitInteractionStatus.FAILED
+                || next.status == AwaitInteractionStatus.TIMED_OUT;
+            case DISPATCHED -> next.status == AwaitInteractionStatus.COMPLETION_OBSERVED
+                || next.status == AwaitInteractionStatus.COMPLETED
+                || next.status == AwaitInteractionStatus.TIMED_OUT;
+            case COMPLETION_OBSERVED -> next.status == AwaitInteractionStatus.COMPLETED
+                || next.status == AwaitInteractionStatus.DISPATCHED
+                || next.status == AwaitInteractionStatus.FAILED
+                || next.status == AwaitInteractionStatus.COMPLETION_OBSERVED
+                || next.status == AwaitInteractionStatus.TIMED_OUT;
+            default -> false;
+        };
     }
 
     public AwaitInteractionStatus observedCompletionStatus() {
@@ -223,7 +326,7 @@ public record AwaitInteractionRecord(
         return new AwaitInteractionRecord(tenantId, executionId, stepId, stepIndex, outputType, interactionId,
             correlationId, causationId, idempotencyKey, version + 1, next, requestPayload, responsePayload,
             unitId, itemIndex, actor, assignee, group, transportType, metadata, deadlineEpochMs, createdAtEpochMs,
-            nowEpochMs, ttlEpochS, transportOutputType);
+            nowEpochMs, ttlEpochS, transportOutputType, commandAcknowledgement, stagedCompletionPayload);
     }
 
     /**
@@ -234,6 +337,6 @@ public record AwaitInteractionRecord(
             tenantId, executionId, stepId, stepIndex, outputType, interactionId, correlationId, causationId,
             idempotencyKey, version, status, requestSnapshot, responseSnapshot, unitId, itemIndex, actor, assignee,
             group, transportType, transportMetadata, deadlineEpochMs, createdAtEpochMs, updatedAtEpochMs,
-            ttlEpochS, transportOutputType);
+            ttlEpochS, transportOutputType, commandAcknowledgement, stagedCompletionPayload);
     }
 }
