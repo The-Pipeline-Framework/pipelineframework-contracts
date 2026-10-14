@@ -47,8 +47,25 @@ public record TransitionCommandEnvelope(
     int redriveStepIndex,
     Optional<String> redriveCommandId,
     Optional<String> redriveReason,
-    Optional<PagedTransitionContext> pageContext
+    Optional<PagedTransitionContext> pageContext,
+    Optional<String> awaitOccurrenceCause
 ) {
+    /** Compatibility constructor for wire messages without Await occurrence metadata. */
+    public TransitionCommandEnvelope(
+        String tenantId, String executionId, String pipelineId, String contractVersion,
+        String releaseVersion, int currentStepIndex, int stopBeforeStepIndex, int attempt,
+        ExecutionResultShape resultShape, long executionVersion, String transitionKey,
+        String traceId, String payloadTypeId, String payloadEncoding, String payload,
+        ExecutionRedriveIntent redriveIntent, int redriveStepIndex,
+        Optional<String> redriveCommandId, Optional<String> redriveReason,
+        Optional<PagedTransitionContext> pageContext
+    ) {
+        this(tenantId, executionId, pipelineId, contractVersion, releaseVersion, currentStepIndex,
+            stopBeforeStepIndex, attempt, resultShape, executionVersion, transitionKey, traceId,
+            payloadTypeId, payloadEncoding, payload, redriveIntent, redriveStepIndex,
+            redriveCommandId, redriveReason, pageContext, Optional.empty());
+    }
+
     public TransitionCommandEnvelope(
         String tenantId, String executionId, String pipelineId, String contractVersion,
         String releaseVersion, int currentStepIndex, int stopBeforeStepIndex, int attempt,
@@ -182,6 +199,10 @@ public record TransitionCommandEnvelope(
         redriveCommandId = Optional.ofNullable(redriveCommandId).orElseGet(Optional::empty);
         redriveReason = Optional.ofNullable(redriveReason).orElseGet(Optional::empty);
         pageContext = Optional.ofNullable(pageContext).orElseGet(Optional::empty);
+        awaitOccurrenceCause = Optional.ofNullable(awaitOccurrenceCause).orElseGet(Optional::empty);
+        awaitOccurrenceCause.ifPresent(value -> {
+            if (value.isBlank()) throw new IllegalArgumentException("awaitOccurrenceCause must not be blank");
+        });
         if (redriveIntent == ExecutionRedriveIntent.RETRY_FAILED_COMMAND && redriveStepIndex < currentStepIndex) {
             throw new IllegalArgumentException(
                 "redriveStepIndex must identify a step at or after currentStepIndex for deliberate Command retry");
@@ -259,7 +280,8 @@ public record TransitionCommandEnvelope(
             command.redriveStepIndex(),
             command.redriveCommandId(),
             command.redriveReason(),
-            command.pageContext());
+            command.pageContext(),
+            command.awaitOccurrenceCause());
     }
 
     public TransitionWorkerCommand toCommand(TransitionPayloadCodec codec) {
@@ -278,7 +300,8 @@ public record TransitionCommandEnvelope(
             redriveStepIndex,
             redriveCommandId,
             redriveReason,
-            pageContext);
+            pageContext,
+            awaitOccurrenceCause);
     }
 
     public SerializedTransitionPayload serializedPayload() {

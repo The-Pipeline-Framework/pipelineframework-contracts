@@ -171,6 +171,10 @@ public record AwaitInteractionRecord(
         if (unitId == null || unitId.isBlank()) {
             throw new IllegalArgumentException("unitId must not be blank");
         }
+        var occurrence = AwaitUnitOccurrence.fromUnitId(unitId);
+        if (occurrence.isPresent() && !occurrence.orElseThrow().matches(tenantId, executionId, stepId, stepIndex)) {
+            throw new IllegalArgumentException("Await interaction differs from its occurrence scope");
+        }
         if (itemIndex != null && itemIndex < 0) {
             throw new IllegalArgumentException("itemIndex must be non-negative when set");
         }

@@ -158,6 +158,12 @@ class ExecutionStateStoreTest {
         }
 
         @Override
+        public Uni<Optional<org.pipelineframework.awaitable.AwaitUnitReleaseAcknowledgement>> getAwaitUnitReleaseAcknowledgement(
+            String tenantId, String executionId, String unitId) {
+            return Uni.createFrom().failure(new UnsupportedOperationException("Test provider has no Await release acknowledgements"));
+        }
+
+        @Override
         public Uni<Optional<ExecutionRecord<Object, Object>>> markAwaitCompleted(
             String tenantId, String executionId, String awaitUnitId, int nextStepIndex, long nowEpochMs) {
             return Uni.createFrom().item(Optional.of(createTestRecord()));

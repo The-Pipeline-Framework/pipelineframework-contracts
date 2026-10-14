@@ -34,8 +34,22 @@ public record TransitionWorkerCommand(
     int redriveStepIndex,
     Optional<String> redriveCommandId,
     Optional<String> redriveReason,
-    Optional<PagedTransitionContext> pageContext
+    Optional<PagedTransitionContext> pageContext,
+    Optional<String> awaitOccurrenceCause
 ) {
+    /** Compatibility constructor for worker commands without Await occurrence metadata. */
+    public TransitionWorkerCommand(
+        String tenantId, String executionId, int currentStepIndex, int stopBeforeStepIndex,
+        int attempt, ExecutionResultShape resultShape, long executionVersion, String transitionKey,
+        Object inputPayload, ExecutionRedriveIntent redriveIntent, int redriveStepIndex,
+        Optional<String> redriveCommandId, Optional<String> redriveReason,
+        Optional<PagedTransitionContext> pageContext
+    ) {
+        this(tenantId, executionId, currentStepIndex, stopBeforeStepIndex, attempt, resultShape,
+            executionVersion, transitionKey, inputPayload, redriveIntent, redriveStepIndex,
+            redriveCommandId, redriveReason, pageContext, Optional.empty());
+    }
+
     public TransitionWorkerCommand(
         String tenantId, String executionId, int currentStepIndex, int stopBeforeStepIndex,
         int attempt, ExecutionResultShape resultShape, long executionVersion,
@@ -176,6 +190,10 @@ public record TransitionWorkerCommand(
         redriveCommandId = Optional.ofNullable(redriveCommandId).orElseGet(Optional::empty);
         redriveReason = Optional.ofNullable(redriveReason).orElseGet(Optional::empty);
         pageContext = Optional.ofNullable(pageContext).orElseGet(Optional::empty);
+        awaitOccurrenceCause = Optional.ofNullable(awaitOccurrenceCause).orElseGet(Optional::empty);
+        awaitOccurrenceCause.ifPresent(value -> {
+            if (value.isBlank()) throw new IllegalArgumentException("awaitOccurrenceCause must not be blank");
+        });
         if (redriveIntent == ExecutionRedriveIntent.RETRY_FAILED_COMMAND && redriveStepIndex < currentStepIndex) {
             throw new IllegalArgumentException(
                 "redriveStepIndex must identify a step at or after currentStepIndex for deliberate Command retry");

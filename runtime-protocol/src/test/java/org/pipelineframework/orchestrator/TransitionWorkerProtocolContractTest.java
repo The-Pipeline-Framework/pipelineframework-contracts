@@ -117,4 +117,25 @@ class TransitionWorkerProtocolContractTest {
         assertEquals(Optional.of(page), decoded.pageContext());
         assertEquals("decoded", decoded.inputPayload());
     }
+
+    @Test
+    void awaitOccurrenceCauseSurvivesTheSignedWorkerEnvelope() {
+        TransitionWorkerCommand command = new TransitionWorkerCommand(
+            "tenant-1", "execution-1", 0, -1, 0, ExecutionResultShape.SINGLE, 2L,
+            "transition-2", "decoded", ExecutionRedriveIntent.REPLAY, -1,
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("reissue-v2-target"));
+        SerializedTransitionPayload payload = new SerializedTransitionPayload("example.Input", "JSON", "{}");
+        TransitionCommandEnvelope envelope = TransitionCommandEnvelope.from(
+            command, "payments", "contract-v1", "release-v1", "trace-2", payload);
+        TransitionWorkerCommand decoded = envelope.toCommand(new TransitionPayloadCodec() {
+            @Override public String encoding() { return "JSON"; }
+            @Override public SerializedTransitionPayload encode(Object value) { return payload; }
+            @Override public Object decode(SerializedTransitionPayload value) { return "decoded"; }
+        });
+
+        assertEquals(Optional.of("reissue-v2-target"), envelope.awaitOccurrenceCause());
+        assertEquals(command.awaitOccurrenceCause(), decoded.awaitOccurrenceCause());
+        assertTrue(new TransitionWorkerCommand("tenant-1", "execution-1", 0, 0,
+            ExecutionResultShape.SINGLE, 0L, "legacy", "payload").awaitOccurrenceCause().isEmpty());
+    }
 }
