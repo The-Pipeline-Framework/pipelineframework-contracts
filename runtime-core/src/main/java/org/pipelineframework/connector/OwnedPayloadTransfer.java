@@ -39,6 +39,7 @@ public final class OwnedPayloadTransfer {
     public static final String OWNER_BINDING = "tpf.payload.owner.binding";
     public static final String OWNER_ORIGIN = "tpf.payload.owner.origin-sha256";
     private static final int CHUNK_BYTES = 64 * 1024;
+    private static final long DELEGATED_WAIT_SECONDS = 300;
     private final ConnectorBindingRegistry bindings;
     private final ConnectorRuntimeContext runtimeContext;
     private final PayloadBoundaryAuthorizer authorizer;
@@ -55,6 +56,128 @@ public final class OwnedPayloadTransfer {
                                    String principal, String tenant, String scope, String mediaType, InputStream body)
         throws IOException {
         return upload(boundary, target, principal, tenant, scope, mediaType, body, () -> false);
+    }
+
+    /** Reserves an S3 upload whose data never enters this runtime process. */
+    public DelegatedPayloadTarget.Reservation initiateDelegatedUpload(
+        PipelineHttpPayloadBoundaryConfig boundary, PipelineObjectPublishConfig target,
+        String principal, String tenant, String scope, String mediaType, long bytes, String sha256,
+        String idempotencyKey) {
+        Objects.requireNonNull(boundary, "payload boundary must not be null");
+        requireDirection(boundary, PipelineHttpPayloadBoundaryConfig.Direction.UPLOAD);
+        Objects.requireNonNull(target, "owned upload target must not be null");
+        if (!boundary.objectName().equals(target.name())) {
+            throw new SecurityException("payload boundary does not match the upload target");
+        }
+        Objects.requireNonNull(mediaType, "upload media type must not be null");
+        requireMediaType(boundary, mediaType);
+        if (bytes > boundary.maxBytes()) {
+            throw new PayloadTooLargeException("upload exceeds configured maximum bytes");
+        }
+        if (bytes < 1 || sha256 == null || !sha256.matches("[a-fA-F0-9]{64}")) {
+            throw new IllegalArgumentException("invalid delegated upload length or SHA-256 checksum");
+        }
+        if (idempotencyKey == null || !idempotencyKey.matches("[A-Za-z0-9._:-]{1,128}")) {
+            throw new IllegalArgumentException("delegated upload requires a stable idempotency key");
+        }
+        PayloadBoundaryOwner owner = authorize(boundary, PayloadBoundaryAuthorizationRequest.Action.UPLOAD,
+            principal, tenant, scope, Optional.empty());
+        ConnectorBindingName binding = ConnectorBindingName.of(target.binding().orElseThrow(() ->
+            new IllegalStateException("owned upload target requires a connector binding")));
+        DelegatedPayloadTarget provider = delegatedTarget(binding, target);
+        Map<String, String> metadata = ownerMetadata(owner, binding, target);
+        return awaitDelegated(provider.initiate(new DelegatedPayloadTarget.Request(target.name(), target,
+            mediaType.toLowerCase(Locale.ROOT), metadata, bytes, sha256.toLowerCase(Locale.ROOT),
+            runtimeContext.clock().instant().plus(java.time.Duration.ofMinutes(15)), idempotencyKey)));
+    }
+
+    public DelegatedPayloadTarget.PartCapability delegatedUploadPart(
+        PipelineHttpPayloadBoundaryConfig boundary, PipelineObjectPublishConfig target,
+        String principal, String tenant, String scope, String token, int partNumber) {
+        DelegatedContext context = delegatedTarget(boundary, target, principal, tenant, scope);
+        return awaitDelegated(context.provider().part(target, token, context.metadata(), partNumber));
+    }
+
+    public PayloadReference completeDelegatedUpload(
+        PipelineHttpPayloadBoundaryConfig boundary, PipelineObjectPublishConfig target,
+        String principal, String tenant, String scope, String token) {
+        DelegatedContext context = delegatedTarget(boundary, target, principal, tenant, scope);
+        ObjectWriteResult result = awaitDelegated(context.provider().complete(target, token, context.metadata()));
+        ConnectorPayloadOrigin expectedOrigin = bindings.objectSourceOrigin(context.binding(), target.provider(), 1);
+        PayloadReference reference = result.reference();
+        if (reference == null || result.bytes() != reference.sizeBytes()
+            || result.bytes() > boundary.maxBytes() || result.bytes() < 1
+            || result.checksum() == null || reference.checksum() == null
+            || !result.checksum().equalsIgnoreCase(reference.checksum())
+            || !target.provider().equalsIgnoreCase(reference.provider())
+            || reference.connectorOrigin().filter(origin -> !origin.equals(expectedOrigin)).isPresent()
+            || reference.contentType() == null
+            || !boundary.contentTypes().contains(reference.contentType().toLowerCase(Locale.ROOT))
+            || !context.metadata().entrySet().stream().allMatch(entry ->
+                entry.getValue().equals(reference.metadata().get(entry.getKey())))) {
+            throw new SecurityException("delegated upload returned inconsistent owned payload metadata");
+        }
+        return bindings.ownPayloadReference(context.binding(), target.provider(), 1, reference);
+    }
+
+    public void abortDelegatedUpload(
+        PipelineHttpPayloadBoundaryConfig boundary, PipelineObjectPublishConfig target,
+        String principal, String tenant, String scope, String token) {
+        DelegatedContext context = delegatedTarget(boundary, target, principal, tenant, scope);
+        awaitDelegated(context.provider().abort(target, token, context.metadata()));
+    }
+
+    private DelegatedContext delegatedTarget(PipelineHttpPayloadBoundaryConfig boundary,
+                                             PipelineObjectPublishConfig target,
+                                             String principal, String tenant, String scope) {
+        requireDirection(boundary, PipelineHttpPayloadBoundaryConfig.Direction.UPLOAD);
+        if (!boundary.objectName().equals(target.name())) {
+            throw new SecurityException("payload boundary does not match the upload target");
+        }
+        PayloadBoundaryOwner owner = authorize(boundary, PayloadBoundaryAuthorizationRequest.Action.UPLOAD,
+            principal, tenant, scope, Optional.empty());
+        ConnectorBindingName binding = ConnectorBindingName.of(target.binding().orElseThrow(() ->
+            new IllegalStateException("owned upload target requires a connector binding")));
+        return new DelegatedContext(delegatedTarget(binding, target), binding,
+            ownerMetadata(owner, binding, target));
+    }
+
+    private DelegatedPayloadTarget delegatedTarget(ConnectorBindingName binding, PipelineObjectPublishConfig target) {
+        bindings.activate(binding, runtimeContext).toCompletableFuture().join();
+        Object provider = bindings.requireOperation(
+            binding, target.provider(), ConnectorOperationKind.OBJECT_TARGET, 1);
+        if (!(provider instanceof DelegatedPayloadTarget delegated)) {
+            throw new IllegalStateException("object target does not support delegated uploads");
+        }
+        return delegated;
+    }
+
+    private Map<String, String> ownerMetadata(PayloadBoundaryOwner owner, ConnectorBindingName binding,
+                                               PipelineObjectPublishConfig target) {
+        return Map.of(OWNER_TENANT, owner.tenantId(), OWNER_SCOPE, owner.scopeId(),
+            OWNER_BINDING, binding.value(),
+            OWNER_ORIGIN, originDigest(bindings.objectSourceOrigin(binding, target.provider(), 1)));
+    }
+
+    private record DelegatedContext(DelegatedPayloadTarget provider, ConnectorBindingName binding,
+                                    Map<String, String> metadata) { }
+
+    private static <T> T awaitDelegated(CompletionStage<T> operation) {
+        try {
+            // Keep the provider stage alive: it owns cleanup of work that finishes after this deadline.
+            return operation.toCompletableFuture().get(DELEGATED_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (ExecutionException failure) {
+            if (failure.getCause() instanceof RuntimeException cause) {
+                cause.addSuppressed(failure);
+                throw cause;
+            }
+            throw new IllegalStateException("delegated payload operation failed", failure);
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("delegated payload operation was interrupted", failure);
+        } catch (TimeoutException failure) {
+            throw new IllegalStateException("delegated payload operation timed out", failure);
+        }
     }
 
     /** Cancels and aborts the provider session when the transport reports a disconnected request. */
@@ -108,7 +231,7 @@ public final class OwnedPayloadTransfer {
                     continue;
                 }
                 if (count > boundary.maxBytes() - bytes) {
-                    throw new IllegalArgumentException("upload exceeds configured maximum bytes");
+                    throw new PayloadTooLargeException("upload exceeds configured maximum bytes");
                 }
                 digest.update(buffer, 0, count);
                 awaitUpload(session.write(ByteBuffer.wrap(buffer, 0, count)), cancelled);
@@ -161,6 +284,41 @@ public final class OwnedPayloadTransfer {
                 reference.sizeBytes(), reference.checksum());
         } catch (RuntimeException failure) {
             throw new SecurityException("payload is unavailable or provenance is invalid", failure);
+        }
+    }
+
+    /** Issues only a transport credential; the owned reference remains the canonical claim check. */
+    public DelegatedPayloadSource.DownloadCapability delegatedDownload(
+        PipelineHttpPayloadBoundaryConfig boundary, PipelineObjectSourceConfig source,
+        String principal, String tenant, String scope, PayloadReference reference) {
+        checkDownload(boundary, source, principal, tenant, scope, reference);
+        ConnectorBindingName binding = ConnectorBindingName.of(source.binding().orElseThrow());
+        bindings.activate(binding, runtimeContext).toCompletableFuture().join();
+        Object provider = bindings.requireOperation(binding, source.provider(),
+            ConnectorOperationKind.OBJECT_SOURCE, 1);
+        if (!(provider instanceof DelegatedPayloadSource delegated)) {
+            throw new IllegalStateException("object source does not support delegated downloads");
+        }
+        java.time.Duration lifetime = java.time.Duration.ofMinutes(5);
+        java.time.Instant requestedAt = runtimeContext.clock().instant();
+        DelegatedPayloadSource.DownloadCapability capability =
+            awaitDelegated(delegated.authorizeDownload(reference, lifetime));
+        requireDelegatedCapability(reference, capability, requestedAt, runtimeContext.clock().instant(), lifetime);
+        return capability;
+    }
+
+    static void requireDelegatedCapability(PayloadReference reference,
+                                           DelegatedPayloadSource.DownloadCapability capability,
+                                           java.time.Instant requestedAt, java.time.Instant now,
+                                           java.time.Duration lifetime) {
+        if (capability == null || capability.bytes() != reference.sizeBytes()
+            || (reference.checksum() != null
+                && !reference.checksum().equalsIgnoreCase(capability.sha256()))) {
+            throw new SecurityException("delegated download capability differs from payload reference");
+        }
+        if (!capability.expiresAt().isAfter(now)
+            || capability.expiresAt().isAfter(requestedAt.plus(lifetime))) {
+            throw new SecurityException("delegated download capability has an invalid lifetime");
         }
     }
 
@@ -313,7 +471,7 @@ public final class OwnedPayloadTransfer {
 
     private static void requireMediaType(PipelineHttpPayloadBoundaryConfig boundary, String mediaType) {
         if (mediaType == null || !boundary.contentTypes().contains(mediaType.toLowerCase(Locale.ROOT))) {
-            throw new IllegalArgumentException("payload media type is not allowed");
+            throw new PayloadMediaTypeException("payload media type is not allowed");
         }
     }
 
