@@ -38,5 +38,8 @@ class PayloadBoundaryContractJsonTest {
         var descriptor=PipelineJson.mapper().treeToValue(legacy,PipelineContractDescriptor.class);
         assertEquals(legacy.get("contractHash").asText(),descriptor.contractHash());
         assertEquals(legacy.get("contractVersion").asText(),descriptor.contractVersion());
+        assertTrue(descriptor.httpPayloadBoundaries().isEmpty());
+        assertFalse(PipelineJson.mapper().valueToTree(descriptor).has("httpPayloadBoundaries"),
+            "legacy wire output must not introduce a field that strict older readers do not know");
     }
 }

@@ -57,6 +57,8 @@ public final class PipelineJson {
     private static ObjectMapper createMapper() {
         ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
         mapper.addMixIn(ConnectorProviderId.class, ConnectorProviderIdMixin.class);
+        mapper.addMixIn(org.pipelineframework.orchestrator.release.PipelineContractDescriptor.class,
+            PipelineContractDescriptorMixin.class);
         SimpleModule protobufModule = new SimpleModule("pipeline-protobuf-json");
         protobufModule.addSerializer(MessageOrBuilder.class, new ProtobufJsonSerializer());
         mapper.registerModule(protobufModule);
@@ -70,6 +72,11 @@ public final class PipelineJson {
                 com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY,
                 com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS));
         return mapper;
+    }
+
+    private abstract static class PipelineContractDescriptorMixin {
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+        abstract java.util.List<java.util.Map<String, Object>> httpPayloadBoundaries();
     }
 
     private abstract static class ConnectorProviderIdMixin {
