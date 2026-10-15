@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ser.ContextualSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
@@ -27,8 +29,26 @@ final class CanonicalFieldJsonModule extends SimpleModule {
         addDeserializer(CanonicalFieldValue.class, new FieldDeserializer(null));
     }
 
-    private static final class FieldSerializer extends StdSerializer<CanonicalFieldValue<?>> {
-        FieldSerializer() { super(CanonicalFieldValue.class, false); }
+    private static final class FieldSerializer extends StdSerializer<CanonicalFieldValue<?>>
+            implements ContextualSerializer {
+        private final JsonSerializer<Object> valueSerializer;
+
+        FieldSerializer() { this(null); }
+
+        FieldSerializer(JsonSerializer<Object> valueSerializer) {
+            super(CanonicalFieldValue.class, false);
+            this.valueSerializer = valueSerializer;
+        }
+
+        @Override
+        public JsonSerializer<?> createContextual(SerializerProvider provider, BeanProperty property)
+                throws JsonMappingException {
+            JavaType wrapper = property == null ? null
+                : property.getType().findSuperType(CanonicalFieldValue.class);
+            if (wrapper == null || wrapper.containedTypeCount() != 1) return this;
+            return new FieldSerializer(provider.findTypedValueSerializer(
+                wrapper.containedType(0), true, property));
+        }
 
         @Override
         public boolean isEmpty(SerializerProvider provider, CanonicalFieldValue<?> value) {
@@ -45,7 +65,12 @@ final class CanonicalFieldJsonModule extends SimpleModule {
             if (value.isNull()) {
                 generator.writeNull();
             } else {
-                provider.defaultSerializeValue(value.asOptional().orElseThrow(), generator);
+                Object present = value.asOptional().orElseThrow();
+                if (valueSerializer == null) {
+                    provider.defaultSerializeValue(present, generator);
+                } else {
+                    valueSerializer.serialize(present, generator, provider);
+                }
             }
         }
     }

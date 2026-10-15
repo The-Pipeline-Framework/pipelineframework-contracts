@@ -57,6 +57,21 @@ class CanonicalFieldJsonTest {
         assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
             () -> mapper.writeValueAsString(CanonicalFieldValue.absent()));
     }
+    @com.fasterxml.jackson.annotation.JsonTypeInfo(use = com.fasterxml.jackson.annotation.JsonTypeInfo.Id.NAME,
+        property = "kind")
+    @com.fasterxml.jackson.annotation.JsonSubTypes({
+        @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = Choice.class, name = "choice")})
+    interface Base {}
+    record Choice(String label) implements Base {}
+    record Choices(CanonicalFieldValue<java.util.List<Base>> choices) {}
+
+    @Test void polymorphicCollectionKeepsElementTypeIdentifiers() throws Exception {
+        Choices input = new Choices(CanonicalFieldValue.of(java.util.List.of(new Choice("x"))));
+        String json = mapper.writeValueAsString(input);
+        assertEquals("choice", mapper.readTree(json).get("choices").get(0).get("kind").asText());
+        assertEquals(input, mapper.readValue(json, Choices.class));
+    }
+
     @Test void schemaStillRejectsExplicitNullForNonNullableField() {
         assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
             () -> mapper.readValue("{\"value\":null}", NonNullInput.class));
