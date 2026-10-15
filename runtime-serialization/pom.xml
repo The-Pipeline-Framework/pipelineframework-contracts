@@ -16,6 +16,11 @@
     <dependencies>
         <dependency>
             <groupId>org.pipelineframework</groupId>
+            <artifactId>pipelineframework-runtime-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.pipelineframework</groupId>
             <artifactId>pipelineframework-semantic-model</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -74,6 +79,7 @@
                                     </excludes>
                                     <includes>
                                         <include>org.pipelineframework:pipelineframework-semantic-model</include>
+                                        <include>org.pipelineframework:pipelineframework-runtime-core</include>
                                     </includes>
                                 </bannedDependencies>
                             </rules>

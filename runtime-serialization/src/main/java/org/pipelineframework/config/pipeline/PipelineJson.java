@@ -64,6 +64,11 @@ public final class PipelineJson {
         pathModule.addSerializer(Path.class, new PathJsonSerializer());
         pathModule.addDeserializer(Path.class, new PathJsonDeserializer());
         mapper.registerModule(pathModule);
+        mapper.registerModule(new CanonicalFieldJsonModule());
+        mapper.configOverride(org.pipelineframework.type.CanonicalFieldValue.class)
+            .setInclude(com.fasterxml.jackson.annotation.JsonInclude.Value.construct(
+                com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY,
+                com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS));
         return mapper;
     }
 
