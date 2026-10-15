@@ -27,7 +27,8 @@ public record PipelineContractDescriptor(
     String canonicalCatalogFingerprint,
     PipelineCompositionDescriptor composition,
     List<ImportedPipelineDefinitionDescriptor> importedDefinitions,
-    List<Map<String, Object>> capabilityImports
+    List<Map<String, Object>> capabilityImports,
+    List<Map<String, Object>> httpPayloadBoundaries
 ) {
     public static final int CURRENT_SCHEMA_VERSION = 3;
     public static final String RESOURCE_PATH = "META-INF/pipeline/pipeline-contract.json";
@@ -54,6 +55,23 @@ public record PipelineContractDescriptor(
         capabilityImports = capabilityImports == null ? List.of() : capabilityImports.stream()
             .map(PipelineContractDescriptor::immutableMap)
             .toList();
+        httpPayloadBoundaries = httpPayloadBoundaries == null ? List.of() : httpPayloadBoundaries.stream()
+            .map(boundary -> {
+                if (boundary == null) {
+                    throw new IllegalArgumentException("httpPayloadBoundaries entries must not be null");
+                }
+                for (Map.Entry<String, Object> field : boundary.entrySet()) {
+                    if (field.getKey() == null || field.getValue() == null) {
+                        throw new IllegalArgumentException("httpPayloadBoundaries metadata "
+                            + field.getKey() + " must not be null");
+                    }
+                }
+                return immutableMap(boundary);
+            })
+            .toList();
+        if (schemaVersion < 3 && !httpPayloadBoundaries.isEmpty()) {
+            throw new IllegalArgumentException("HTTP payload boundaries require contract schemaVersion 3");
+        }
         if (schemaVersion < 3 && composition.present()) {
             throw new IllegalArgumentException("Pipeline composition requires contract schemaVersion 3");
         }
@@ -63,6 +81,30 @@ public record PipelineContractDescriptor(
         if (schemaVersion < 3 && !capabilityImports.isEmpty()) {
             throw new IllegalArgumentException("Capability imports require contract schemaVersion 3");
         }
+    }
+
+    /** Binary/source compatibility for contracts created before HTTP payload metadata was retained. */
+    public PipelineContractDescriptor(
+        int schemaVersion,
+        String pipelineId,
+        String contractVersion,
+        String contractHash,
+        String platform,
+        String transport,
+        String module,
+        boolean pluginHost,
+        String runtimeLayout,
+        List<PipelineBundleStepDescriptor> steps,
+        PipelineBundleCapabilities capabilities,
+        Map<String, Map<String, Object>> canonicalTypes,
+        String canonicalCatalogFingerprint,
+        PipelineCompositionDescriptor composition,
+        List<ImportedPipelineDefinitionDescriptor> importedDefinitions,
+        List<Map<String, Object>> capabilityImports
+    ) {
+        this(schemaVersion, pipelineId, contractVersion, contractHash, platform, transport, module, pluginHost,
+            runtimeLayout, steps, capabilities, canonicalTypes, canonicalCatalogFingerprint, composition,
+            importedDefinitions, capabilityImports, List.of());
     }
 
     /** Schema-v1/v2 source compatibility; earlier contracts have no composition descriptor. */
