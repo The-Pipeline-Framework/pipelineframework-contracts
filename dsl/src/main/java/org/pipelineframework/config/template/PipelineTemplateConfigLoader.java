@@ -1187,7 +1187,7 @@ public class PipelineTemplateConfigLoader {
     private int readVersion(Map<?, ?> rootMap) {
         Object rawVersion = rootMap.get("version");
         if (rawVersion == null) {
-            return 1;
+            return 3;
         }
         if (!(rawVersion instanceof Number number)) {
             throw new IllegalStateException("Template version must be numeric, got '" + rawVersion + "'");

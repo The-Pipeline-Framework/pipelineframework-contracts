@@ -29,6 +29,34 @@ class PipelineTemplateConfigLoaderTest {
     Path tempDir;
 
     @Test
+    void omittedVersionUsesV3TypeAndStepGrammar() throws Exception {
+        Path configPath = tempDir.resolve("implicit-v3.yaml");
+        Files.writeString(configPath, """
+            appName: Implicit v3
+            basePackage: com.example
+            transport: LOCAL
+            types:
+              Value:
+                fields: [[id, string]]
+            steps:
+              - name: Transform value
+                service: com.example.TransformService
+                cardinality: ONE_TO_ONE
+                input: Value
+                output: Value
+                java:
+                  input: com.example.Value
+                  output: com.example.Value
+            """);
+
+        PipelineTemplateConfig config = new PipelineTemplateConfigLoader().load(configPath);
+
+        assertEquals(3, config.version());
+        assertTrue(config.typeModel().contains("Value"));
+        assertEquals("Value", config.steps().getFirst().inputTypeName());
+    }
+
+    @Test
     void pinsV3HttpPayloadBoundaryToCanonicalFieldAndBoundOperations() throws Exception {
         Path configPath = tempDir.resolve("http-payloads.yaml");
         Files.writeString(configPath, """
@@ -968,6 +996,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void stillLoadsLegacyTemplateFieldDefinitions() throws Exception {
         String yaml = """
+            version: 1
             appName: "Legacy Test App"
             basePackage: "com.example.test"
             transport: "GRPC"
@@ -1008,6 +1037,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void loadsCheckpointBoundaryDeclarations() throws Exception {
         String yaml = """
+            version: 1
             appName: "Test App"
             basePackage: "com.example.test"
             transport: "GRPC"
@@ -1041,6 +1071,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void loadsObjectPublishOutputBoundary() throws Exception {
         String yaml = """
+            version: 1
             appName: "Test App"
             basePackage: "com.example.test"
             transport: "GRPC"
@@ -1089,6 +1120,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void loadsObjectPublishOutputBoundaryDefaults() throws Exception {
         String yaml = """
+            version: 1
             appName: "Test App"
             basePackage: "com.example.test"
             transport: "GRPC"
@@ -1225,6 +1257,7 @@ class PipelineTemplateConfigLoaderTest {
     void rejectsDistinctDeferredOperationOutputForVersionOneTemplates() throws Exception {
         Path configPath = tempDir.resolve("pipeline-config-deferred-completion-v1.yaml");
         Files.writeString(configPath, """
+            version: 1
             appName: Deferred completion
             basePackage: com.example.deferred
             transport: GRPC
@@ -1251,6 +1284,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void rejectsMalformedCheckpointBoundaryBlock() throws Exception {
         String yaml = """
+            version: 1
             appName: "Test App"
             basePackage: "com.example.test"
             transport: "GRPC"
@@ -1275,6 +1309,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void rejectsNonListIdempotencyKeyFieldsInCheckpoint() throws Exception {
         String yaml = """
+            version: 1
             appName: "Test App"
             basePackage: "com.example.test"
             transport: "GRPC"
@@ -1301,6 +1336,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void rejectsObjectOutputReferencingMissingPublishTarget() throws Exception {
         String yaml = """
+            version: 1
             appName: "Test App"
             basePackage: "com.example.test"
             transport: "GRPC"
@@ -1324,6 +1360,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void rejectsNonPositiveObjectSourcePollSettings() throws Exception {
         String yaml = """
+            version: 1
             appName: "Test App"
             basePackage: "com.example.test"
             transport: "GRPC"
@@ -1348,6 +1385,7 @@ class PipelineTemplateConfigLoaderTest {
     @Test
     void platformCanBeOverriddenViaSystemProperty() throws Exception {
         String yaml = """
+            version: 1
             appName: "Test App"
             basePackage: "com.example.test"
             transport: "REST"
@@ -1840,6 +1878,7 @@ class PipelineTemplateConfigLoaderTest {
     void preservesFullyQualifiedJavaStepContractsWithoutTreatingThemAsLogicalTypes() throws Exception {
         Path legacy = tempDir.resolve("qualified-java-v1.yaml");
         Files.writeString(legacy, """
+            version: 1
             appName: "Qualified Java v1"
             basePackage: "com.example"
             transport: "REST"
