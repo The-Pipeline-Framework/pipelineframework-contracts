@@ -198,6 +198,13 @@ public interface AwaitInteractionStore {
         return Uni.createFrom().failure(new UnsupportedOperationException("Store does not support Command completion"));
     }
 
+    /** Atomically replaces acknowledgement-aware Command state when the expected version still owns it. */
+    default Uni<Optional<AwaitInteractionRecord>> compareAndSetCommandCompletion(
+        AwaitInteractionRecord expected, AwaitInteractionRecord replacement) {
+        return Uni.createFrom().failure(new UnsupportedOperationException(
+            "Store does not support acknowledgement-aware Command completion"));
+    }
+
     default Uni<Optional<AwaitInteractionRecord>> markDispatchRetryable(AwaitInteractionRecord expected, long nowEpochMs) {
         if (expected.status() != org.pipelineframework.awaitable.AwaitInteractionStatus.DISPATCHING) {
             return Uni.createFrom().item(Optional.empty());
