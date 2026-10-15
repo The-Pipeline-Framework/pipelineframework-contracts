@@ -76,4 +76,57 @@ class CanonicalFieldJsonTest {
         assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
             () -> mapper.readValue("{\"value\":null}", NonNullInput.class));
     }
+
+    record RequiredNonNull(Integer value) {
+        RequiredNonNull { Objects.requireNonNull(value); }
+    }
+    record OptionalNonNull(CanonicalFieldValue<Integer> value) {
+        OptionalNonNull {
+            Objects.requireNonNull(value);
+            if (value.isNull()) throw new IllegalArgumentException("null forbidden");
+        }
+    }
+    record RequiredNullable(CanonicalFieldValue<Integer> value) {
+        RequiredNullable {
+            Objects.requireNonNull(value);
+            if (value.isAbsent()) throw new IllegalArgumentException("absence forbidden");
+        }
+    }
+    record OptionalNullable(CanonicalFieldValue<Integer> value) {
+        OptionalNullable { Objects.requireNonNull(value); }
+    }
+
+    @Test void documentedPresenceMatrixPreservesZeroWithoutCreatingDefaults() throws Exception {
+        for (Class<?> type : java.util.List.of(RequiredNonNull.class, OptionalNonNull.class,
+                RequiredNullable.class, OptionalNullable.class)) {
+            Object presentZero = mapper.readValue("{\"value\":0}", type);
+            String encoded = mapper.writeValueAsString(presentZero);
+            assertEquals(0, mapper.readTree(encoded).get("value").intValue());
+            assertEquals(presentZero, mapper.readValue(encoded, type));
+        }
+        assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
+            () -> mapper.readValue("{}", RequiredNonNull.class));
+        assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
+            () -> mapper.readValue("{}", RequiredNullable.class));
+        assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
+            () -> mapper.readValue("{\"value\":null}", RequiredNonNull.class));
+        assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
+            () -> mapper.readValue("{\"value\":null}", OptionalNonNull.class));
+        assertTrue(mapper.readValue("{}", OptionalNonNull.class).value().isAbsent());
+        assertTrue(mapper.readValue("{}", OptionalNullable.class).value().isAbsent());
+        assertTrue(mapper.readValue("{\"value\":null}", RequiredNullable.class).value().isNull());
+        assertTrue(mapper.readValue("{\"value\":null}", OptionalNullable.class).value().isNull());
+    }
+
+    record RestOptional(@com.fasterxml.jackson.databind.annotation.JsonDeserialize(
+        using = CanonicalFieldJsonModule.NonNullOptionalDeserializer.class)
+        java.util.Optional<Integer> value) { }
+
+    @Test void annotatedRestOptionalRejectsNullButAcceptsOmissionAndZero() throws Exception {
+        ObjectMapper rest = new ObjectMapper();
+        assertEquals(java.util.Optional.empty(), rest.readValue("{}", RestOptional.class).value());
+        assertEquals(java.util.Optional.of(0), rest.readValue("{\"value\":0}", RestOptional.class).value());
+        assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
+            () -> rest.readValue("{\"value\":null}", RestOptional.class));
+    }
 }
