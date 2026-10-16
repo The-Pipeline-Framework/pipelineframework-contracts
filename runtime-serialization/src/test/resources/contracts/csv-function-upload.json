@@ -1,0 +1,730 @@
+{
+  "schemaVersion": 3,
+  "pipelineId": "org.pipelineframework.csv",
+  "contractVersion": "sha256:c0c6e79b9964160455ce7fa2bcd11d302b7d881f71144276923f526c8a4a6f28",
+  "contractHash": "c0c6e79b9964160455ce7fa2bcd11d302b7d881f71144276923f526c8a4a6f28",
+  "platform": "FUNCTION",
+  "transport": "REST",
+  "module": "orchestrator-svc",
+  "pluginHost": false,
+  "runtimeLayout": "PIPELINE_RUNTIME",
+  "steps": [
+    {
+      "index": 0,
+      "authoredName": "Process Csv Payments Input",
+      "kind": "internal",
+      "cardinality": "ONE_TO_MANY",
+      "inputTypeId": "org.pipelineframework.csv.domain.CsvPaymentsInputFile",
+      "outputTypeId": "org.pipelineframework.csv.domain.PaymentStatus",
+      "runtimeClass": "org.pipelineframework.csv.service.pipeline.ProcessCsvPaymentsInputDeferredCompletionStep",
+      "clientClass": "org.pipelineframework.csv.service.pipeline.ProcessCsvPaymentsInputDeferredCompletionStep",
+      "paging": {
+        "maxRecords": 1000
+      },
+      "deferredCompletion": {
+        "correlationStrategy": "signedResumeToken",
+        "finalOutputTypeId": "org.pipelineframework.csv.domain.PaymentStatus",
+        "fingerprint": "53cb5dcfa10dd3dc5cf58f26d849ba9d41eebd63ef381a72bf7deb804b75bab2",
+        "idempotencyKeyFields": [
+          "csvPaymentsInputFilePath",
+          "csvId",
+          "recipient",
+          "amount",
+          "currency"
+        ],
+        "operationOutputTypeId": "org.pipelineframework.csv.domain.PaymentRecord",
+        "timeout": "PT5M",
+        "transportConfigFingerprint": "24fa54f23b832ce3735e657ecb2dc384022eaa6ce8084555f0be553855dd8e7f",
+        "transportType": "sqs"
+      }
+    },
+    {
+      "index": 1,
+      "authoredName": "Process Approved Payment Status",
+      "kind": "internal",
+      "cardinality": "ONE_TO_ONE",
+      "inputTypeId": "org.pipelineframework.csv.domain.ApprovedPaymentStatus",
+      "outputTypeId": "org.pipelineframework.csv.domain.ApprovedPaymentOutput",
+      "runtimeClass": "org.pipelineframework.csv.service.ProcessApprovedPaymentStatusService",
+      "clientClass": "org.pipelineframework.csv.service.pipeline.ProcessApprovedPaymentStatusRestClientStep"
+    },
+    {
+      "index": 2,
+      "authoredName": "Process Unapproved Payment Status",
+      "kind": "internal",
+      "cardinality": "ONE_TO_ONE",
+      "inputTypeId": "org.pipelineframework.csv.domain.UnapprovedPaymentStatus",
+      "outputTypeId": "org.pipelineframework.csv.domain.UnapprovedPaymentOutput",
+      "runtimeClass": "org.pipelineframework.csv.service.ProcessUnapprovedPaymentStatusService",
+      "clientClass": "org.pipelineframework.csv.service.pipeline.ProcessUnapprovedPaymentStatusRestClientStep"
+    },
+    {
+      "index": 3,
+      "authoredName": "Finalize Payment Output",
+      "kind": "internal",
+      "cardinality": "ONE_TO_ONE",
+      "inputTypeId": "org.pipelineframework.csv.domain.PaymentOutputBranch",
+      "outputTypeId": "org.pipelineframework.csv.domain.PaymentOutput",
+      "runtimeClass": "org.pipelineframework.csv.service.ProcessFinalizePaymentOutputService",
+      "clientClass": "org.pipelineframework.csv.service.pipeline.ProcessFinalizePaymentOutputRestClientStep"
+    }
+  ],
+  "canonicalTypes": {
+    "ApprovedPaymentOutput": {
+      "definition": {
+        "fields": [
+          {
+            "name": "amount",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "conversationId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "uuid",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvPaymentsInputFilePath",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "path",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvPaymentsOutputFilename",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "currency",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "currency",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "fee",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "message",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "recipient",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "status",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "int64",
+              "kind": "scalar"
+            }
+          }
+        ],
+        "id": "ApprovedPaymentOutput",
+        "kind": "record"
+      },
+      "definitionFingerprint": "d978a79bf8861ffe9bc7b842bfd0d711abfba4f669cb6b96aab3148a332cab24",
+      "runtimeClass": "org.pipelineframework.csv.domain.ApprovedPaymentOutput"
+    },
+    "ApprovedPaymentStatus": {
+      "definition": {
+        "fields": [
+          {
+            "name": "conversationId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "uuid",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "fee",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "message",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "paymentRecord",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "PaymentRecord",
+              "kind": "named"
+            }
+          },
+          {
+            "name": "paymentRecordId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "uuid",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "reference",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "status",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "statusCode",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "int64",
+              "kind": "scalar"
+            }
+          }
+        ],
+        "id": "ApprovedPaymentStatus",
+        "kind": "record"
+      },
+      "definitionFingerprint": "d0b2efcbfc03c6eb0075935adc1b5274e527921463c6236c62d1ffe7ea8e6421",
+      "runtimeClass": "org.pipelineframework.csv.domain.ApprovedPaymentStatus"
+    },
+    "CsvPaymentsInputFile": {
+      "definition": {
+        "fields": [
+          {
+            "name": "contentRef",
+            "nullability": "NON_NULL",
+            "presence": "OPTIONAL",
+            "type": {
+              "id": "payload_ref",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvFolderPath",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "path",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "filepath",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "path",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "sourceIdentity",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          }
+        ],
+        "id": "CsvPaymentsInputFile",
+        "kind": "record"
+      },
+      "definitionFingerprint": "4c6da416cd3f4bcd545407230dadcfae06279cba1a6f5c82879c92b82c64b0e4",
+      "runtimeClass": "org.pipelineframework.csv.domain.CsvPaymentsInputFile"
+    },
+    "PaymentOutput": {
+      "definition": {
+        "fields": [
+          {
+            "name": "amount",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "conversationId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "uuid",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvPaymentsInputFilePath",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "path",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvPaymentsOutputFilename",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "currency",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "currency",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "fee",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "message",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "recipient",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "status",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "int64",
+              "kind": "scalar"
+            }
+          }
+        ],
+        "id": "PaymentOutput",
+        "kind": "record"
+      },
+      "definitionFingerprint": "4cd289671661d6d7357495d65e6ef4713d4cf7a830d31d68cd64c5df0819e34f",
+      "runtimeClass": "org.pipelineframework.csv.domain.PaymentOutput"
+    },
+    "PaymentOutputBranch": {
+      "definition": {
+        "id": "PaymentOutputBranch",
+        "kind": "union",
+        "variants": [
+          {
+            "discriminator": "approved",
+            "payload": {
+              "id": "ApprovedPaymentOutput",
+              "kind": "named"
+            }
+          },
+          {
+            "discriminator": "unapproved",
+            "payload": {
+              "id": "UnapprovedPaymentOutput",
+              "kind": "named"
+            }
+          }
+        ]
+      },
+      "definitionFingerprint": "af971fa0f94662e28116be81dd03cc770b7967a3a6661e9598ac27588b07323f",
+      "runtimeClass": "org.pipelineframework.csv.domain.PaymentOutputBranch"
+    },
+    "PaymentRecord": {
+      "definition": {
+        "fields": [
+          {
+            "name": "amount",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvPaymentsInputFilePath",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "path",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "currency",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "currency",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "id",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "uuid",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "recipient",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          }
+        ],
+        "id": "PaymentRecord",
+        "kind": "record"
+      },
+      "definitionFingerprint": "faee1bf531463dd130872a300aae3e737123dd5c6667e17f0cd9c8c6bf15f0a5",
+      "runtimeClass": "org.pipelineframework.csv.domain.PaymentRecord"
+    },
+    "PaymentStatus": {
+      "definition": {
+        "id": "PaymentStatus",
+        "kind": "union",
+        "variants": [
+          {
+            "discriminator": "approved",
+            "payload": {
+              "id": "ApprovedPaymentStatus",
+              "kind": "named"
+            }
+          },
+          {
+            "discriminator": "unapproved",
+            "payload": {
+              "id": "UnapprovedPaymentStatus",
+              "kind": "named"
+            }
+          }
+        ]
+      },
+      "definitionFingerprint": "d2b65b29d635ac80e248be7d14d5880363650f36329acf4eaa37cbdd2763193b",
+      "runtimeClass": "org.pipelineframework.csv.domain.PaymentStatus"
+    },
+    "UnapprovedPaymentOutput": {
+      "definition": {
+        "fields": [
+          {
+            "name": "amount",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "conversationId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "uuid",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvPaymentsInputFilePath",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "path",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "csvPaymentsOutputFilename",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "currency",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "currency",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "fee",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "message",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "recipient",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "status",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "int64",
+              "kind": "scalar"
+            }
+          }
+        ],
+        "id": "UnapprovedPaymentOutput",
+        "kind": "record"
+      },
+      "definitionFingerprint": "6f552af808992d8462c2f484b6c9ec903cb6d9da9ac1f052b4b2de72b8221baf",
+      "runtimeClass": "org.pipelineframework.csv.domain.UnapprovedPaymentOutput"
+    },
+    "UnapprovedPaymentStatus": {
+      "definition": {
+        "fields": [
+          {
+            "name": "conversationId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "uuid",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "fee",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "decimal",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "message",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "paymentRecord",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "PaymentRecord",
+              "kind": "named"
+            }
+          },
+          {
+            "name": "paymentRecordId",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "uuid",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "reference",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "status",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "string",
+              "kind": "scalar"
+            }
+          },
+          {
+            "name": "statusCode",
+            "nullability": "NON_NULL",
+            "presence": "REQUIRED",
+            "type": {
+              "id": "int64",
+              "kind": "scalar"
+            }
+          }
+        ],
+        "id": "UnapprovedPaymentStatus",
+        "kind": "record"
+      },
+      "definitionFingerprint": "787050436cb4f9ccb1ab68e692a1fcc291f0cadeaba5c1b783d54396d31a9765",
+      "runtimeClass": "org.pipelineframework.csv.domain.UnapprovedPaymentStatus"
+    }
+  },
+  "canonicalCatalogFingerprint": "3c613d4cefb53f569ac12fef6cd1b88eab1cb53c54924756d00516d26ade8f80",
+  "importedDefinitions": [],
+  "capabilityImports": [],
+  "httpPayloadBoundaries": [
+    {
+      "authorizationScope": "csv.upload",
+      "canonicalType": "CsvPaymentsInputFile",
+      "contentTypes": [
+        "text/csv"
+      ],
+      "direction": "UPLOAD",
+      "maxBytes": 1048576,
+      "name": "csv-input-upload",
+      "object": "csv-upload-files",
+      "operations": [
+        "initiate",
+        "part",
+        "complete",
+        "abort"
+      ],
+      "referenceField": "contentRef",
+      "route": "/tpf/payloads/csv-input-upload/upload",
+      "transfer": "DELEGATED_S3"
+    }
+  ],
+  "capabilities": {
+    "localTransitionExecution": true,
+    "transitionWorkerProtocols": [
+      "local",
+      "rest",
+      "grpc",
+      "sqs"
+    ]
+  }
+}

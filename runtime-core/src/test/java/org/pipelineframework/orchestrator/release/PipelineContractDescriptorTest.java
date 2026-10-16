@@ -35,7 +35,8 @@ class PipelineContractDescriptorTest {
                 "canonicalCatalogFingerprint",
                 "composition",
                 "importedDefinitions",
-                "capabilityImports"),
+                "capabilityImports",
+                "httpPayloadBoundaries"),
             Arrays.stream(PipelineContractDescriptor.class.getRecordComponents())
                 .map(RecordComponent::getName)
                 .toList());
@@ -74,6 +75,38 @@ class PipelineContractDescriptorTest {
         assertThrows(
             UnsupportedOperationException.class,
             () -> descriptor.canonicalTypes().put("other", Map.of()));
+    }
+
+    @Test
+    void payloadBoundaryCollectionsAreDeeplyImmutableAndRequireSchemaThree() {
+        var operations = new java.util.ArrayList<>(List.of("initiate", "part", "complete", "abort"));
+        var boundary = new LinkedHashMap<String, Object>();
+        boundary.put("name", "csv-input-upload"); boundary.put("operations", operations);
+        var source = new java.util.ArrayList<Map<String, Object>>(List.of(boundary));
+        var descriptor = new PipelineContractDescriptor(3, "example", "v", "hash", "FUNCTION", "REST",
+            "module", false, "PIPELINE_RUNTIME", List.of(), PipelineBundleCapabilities.defaults(),
+            Map.of(), "", PipelineCompositionDescriptor.empty(), List.of(), List.of(), source);
+        source.clear(); boundary.clear(); operations.clear();
+        assertEquals(List.of("initiate", "part", "complete", "abort"), descriptor.httpPayloadBoundaries().getFirst().get("operations"));
+        assertThrows(UnsupportedOperationException.class, () -> descriptor.httpPayloadBoundaries().clear());
+        assertThrows(UnsupportedOperationException.class, () -> descriptor.httpPayloadBoundaries().getFirst().clear());
+        assertThrows(UnsupportedOperationException.class, () -> ((List<?>) descriptor.httpPayloadBoundaries().getFirst().get("operations")).clear());
+        assertThrows(IllegalArgumentException.class, () -> new PipelineContractDescriptor(2, "example", "v", "hash",
+            "FUNCTION", "REST", "module", false, "PIPELINE_RUNTIME", List.of(), PipelineBundleCapabilities.defaults(),
+            Map.of(), "", PipelineCompositionDescriptor.empty(), List.of(), List.of(), descriptor.httpPayloadBoundaries()));
+    }
+
+    @Test
+    void nullPayloadBoundaryEntriesAndMetadataFailWithTheFieldContext() {
+        var nullEntry = new java.util.ArrayList<Map<String, Object>>(); nullEntry.add(null);
+        var nullRoute = new LinkedHashMap<String, Object>(); nullRoute.put("route", null);
+        var nullScope = new LinkedHashMap<String, Object>(); nullScope.put("authorizationScope", null);
+        for (var boundaries : List.<List<Map<String, Object>>>of(nullEntry, List.of(nullRoute), List.of(nullScope))) {
+            var failure = assertThrows(IllegalArgumentException.class, () -> new PipelineContractDescriptor(3,
+                "example", "v", "hash", "FUNCTION", "REST", "module", false, "PIPELINE_RUNTIME", List.of(),
+                PipelineBundleCapabilities.defaults(), Map.of(), "", PipelineCompositionDescriptor.empty(), List.of(), List.of(), boundaries));
+            org.junit.jupiter.api.Assertions.assertTrue(failure.getMessage().contains("httpPayloadBoundaries"));
+        }
     }
 
     @Test
