@@ -30,19 +30,22 @@ class PipelineTemplateConfigLoaderTest {
 
     @Test
     void loadsPreparedSourceAndClosesIt() throws Exception {
-        Path configPath = tempDir.resolve("prepared.yaml");
-        Files.writeString(configPath, """
+        Path originalPath = tempDir.resolve("original.yaml");
+        Path preparedPath = tempDir.resolve("prepared.yaml");
+        String preparedYaml = """
             version: 3
             appName: Prepared
             basePackage: com.example
             transport: LOCAL
             types:
               Value: { fields: [[id, string]] }
-            """);
+            """;
+        Files.writeString(originalPath, preparedYaml.replace("appName: Prepared", "appName: Original"));
+        Files.writeString(preparedPath, preparedYaml);
         var closed = new java.util.concurrent.atomic.AtomicBoolean();
-        var config = new PipelineTemplateConfigLoader().load(configPath, original ->
+        var config = new PipelineTemplateConfigLoader().load(originalPath, ignored ->
             new PipelineTemplateConfigLoader.PreparedSource() {
-                @Override public Path configPath() { return original; }
+                @Override public Path configPath() { return preparedPath; }
                 @Override public void close() { closed.set(true); }
             });
         assertEquals("Prepared", config.appName());
