@@ -29,7 +29,12 @@ public final class ConnectorProviderArtifacts {
                 ConnectorDescriptors.provider(provider),
                 provider.operations().stream().map(ConnectorDescriptors::operation).toList()))
             .toList();
-        return new ConnectorProviderManifest(ConnectorProviderManifest.CURRENT_SCHEMA_VERSION, artifacts);
+        boolean hasApplicationProjectedTypes = artifacts.stream()
+            .flatMap(artifact -> artifact.operations().stream())
+            .flatMap(operation -> operation.typeContract().stream())
+            .anyMatch(contract -> contract.mode() == ConnectorOperationTypeMode.APPLICATION_PROJECTED);
+        return new ConnectorProviderManifest(hasApplicationProjectedTypes
+            ? ConnectorProviderManifest.CURRENT_SCHEMA_VERSION : 7, artifacts);
     }
 
     public static void write(Path classesDirectory, Collection<? extends ConnectorProvider<?>> providers) {

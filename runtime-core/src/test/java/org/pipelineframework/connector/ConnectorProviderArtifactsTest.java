@@ -23,6 +23,44 @@ import org.pipelineframework.protocol.ProtocolTypeIdentity;
 
 class ConnectorProviderArtifactsTest {
     @Test
+    void preservesSchemaSevenForProvidersWithoutApplicationProjection() {
+        var provider = new ConnectorProvider<String>() {
+            @Override public ConnectorProviderId id() {
+                return ConnectorProviderId.of("acme.exact");
+            }
+
+            @Override public ConnectorProviderVersion version() {
+                return new ConnectorProviderVersion(1, 0);
+            }
+
+            @Override public List<ConnectorOperation> operations() {
+                return List.of(new BlockingStringQuery());
+            }
+        };
+
+        assertEquals(7, ConnectorProviderArtifacts.manifest(List.of(provider)).schemaVersion());
+    }
+
+    @Test
+    void usesSchemaEightWhenProviderDeclaresApplicationProjection() {
+        var provider = new ConnectorProvider<String>() {
+            @Override public ConnectorProviderId id() {
+                return ConnectorProviderId.of("acme.projector");
+            }
+
+            @Override public ConnectorProviderVersion version() {
+                return new ConnectorProviderVersion(1, 0);
+            }
+
+            @Override public List<ConnectorOperation> operations() {
+                return List.of(new ProjectedQuery());
+            }
+        };
+
+        assertEquals(8, ConnectorProviderArtifacts.manifest(List.of(provider)).schemaVersion());
+    }
+
+    @Test
     void serializesApplicationProjectionOnlyWhenDeclared() {
         var contract = new ConnectorOperationTypeContract("java.lang.Object",
             Optional.of("java.lang.Object"), ConnectorOperationTypeMode.APPLICATION_PROJECTED);
