@@ -10,6 +10,10 @@ import java.util.Optional;
  * {@code C} and receive the empty document.
  */
 public interface QueryOperation<I, C, O> extends ConnectorOperation {
+    default ConnectorOperationTypeMode typeMode() {
+        return ConnectorOperationTypeMode.EXACT;
+    }
+
     default QueryCapabilities capabilities() {
         return QueryCapabilities.conservative();
     }

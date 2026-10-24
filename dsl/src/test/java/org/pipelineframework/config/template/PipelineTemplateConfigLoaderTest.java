@@ -29,6 +29,27 @@ class PipelineTemplateConfigLoaderTest {
     Path tempDir;
 
     @Test
+    void loadsPreparedSourceAndClosesIt() throws Exception {
+        Path configPath = tempDir.resolve("prepared.yaml");
+        Files.writeString(configPath, """
+            version: 3
+            appName: Prepared
+            basePackage: com.example
+            transport: LOCAL
+            types:
+              Value: { fields: [[id, string]] }
+            """);
+        var closed = new java.util.concurrent.atomic.AtomicBoolean();
+        var config = new PipelineTemplateConfigLoader().load(configPath, original ->
+            new PipelineTemplateConfigLoader.PreparedSource() {
+                @Override public Path configPath() { return original; }
+                @Override public void close() { closed.set(true); }
+            });
+        assertEquals("Prepared", config.appName());
+        assertTrue(closed.get());
+    }
+
+    @Test
     void omittedVersionUsesV3TypeAndStepGrammar() throws Exception {
         Path configPath = tempDir.resolve("implicit-v3.yaml");
         Files.writeString(configPath, """

@@ -76,6 +76,9 @@ public record CallableOperationSnapshot(
             value(operation.description());
             value(operation.typeContract().inputType());
             optional(operation.typeContract().outputType(), this::value);
+            if (operation.typeContract().mode() != ConnectorOperationTypeMode.EXACT) {
+                value(operation.typeContract().mode().name());
+            }
             optional(operation.commandCapabilities(), capabilities -> {
                 value(capabilities.executionPosture().name());
                 value(capabilities.maximumMachineConfirmation().name());

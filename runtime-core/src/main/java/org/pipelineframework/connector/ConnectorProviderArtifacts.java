@@ -177,6 +177,9 @@ public final class ConnectorProviderArtifacts {
         operation.typeContract().ifPresent(contract -> {
             json.append(",\"typeContract\":{\"input\":").append(quote(contract.inputType()));
             contract.outputType().ifPresent(output -> json.append(",\"output\":").append(quote(output)));
+            if (contract.mode() != ConnectorOperationTypeMode.EXACT) {
+                json.append(",\"mode\":").append(quote(contract.mode().name()));
+            }
             json.append('}');
         });
         if (!operation.callbacks().isEmpty()) {

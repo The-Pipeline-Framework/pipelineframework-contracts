@@ -28,7 +28,9 @@ final class ConnectorOperationTypes {
         }
         return findArguments(operation.getClass(), family, Map.of())
             .map(arguments -> new ConnectorOperationTypeContract(
-                normalize(arguments[0]), output(arguments[2])));
+                normalize(arguments[0]), output(arguments[2]),
+                operation instanceof QueryOperation<?, ?, ?> query
+                    ? query.typeMode() : ConnectorOperationTypeMode.EXACT));
     }
 
     static Optional<Class<?>> configurationType(ConnectorOperation operation, Class<?> family) {

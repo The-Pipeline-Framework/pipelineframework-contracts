@@ -292,15 +292,16 @@ public final class ConnectorProviderManifestReader {
         return new ConnectorOperationDescriptor(
             string(value, "id"), kind, integer(value, "majorVersion"),
             optionalSchema(value, "configurationSchema"), optionalCommandCapabilities(value),
-            optionalQueryCapabilities(value), queryCardinality, optionalTypeContract(value),
+            optionalQueryCapabilities(value), queryCardinality, optionalTypeContract(value, schemaVersion),
             value.containsKey("callbacks") ? array(value, "callbacks").stream()
-                .map(entry -> callback(object(entry, "callback descriptor"))).toList() : List.of());
+                .map(entry -> callback(object(entry, "callback descriptor"), schemaVersion)).toList() : List.of());
     }
 
-    private static ConnectorOperationCallbackDescriptor callback(Map<String, Object> value) {
+    private static ConnectorOperationCallbackDescriptor callback(Map<String, Object> value, int schemaVersion) {
         requireOnly(value, "id", "typeContract", "required");
         return new ConnectorOperationCallbackDescriptor(string(value, "id"),
-            optionalTypeContract(value).orElseThrow(() -> malformed("typeContract", "required callback contract")),
+            optionalTypeContract(value, schemaVersion)
+                .orElseThrow(() -> malformed("typeContract", "required callback contract")),
             bool(value, "required"));
     }
 
@@ -324,15 +325,23 @@ public final class ConnectorProviderManifestReader {
         return Optional.of(QueryOperationCardinality.of(string(value, "queryCardinality")));
     }
 
-    private static Optional<ConnectorOperationTypeContract> optionalTypeContract(Map<String, Object> value) {
+    private static Optional<ConnectorOperationTypeContract> optionalTypeContract(
+        Map<String, Object> value, int schemaVersion
+    ) {
         if (!value.containsKey("typeContract")) {
             return Optional.empty();
         }
         Map<String, Object> contract = object(value.get("typeContract"), "typeContract");
-        requireOnly(contract, "input", "output");
+        requireOnly(contract, "input", "output", "mode");
+        if (schemaVersion < 8 && contract.containsKey("mode")) {
+            throw malformed("mode", "field absent from schema versions before 8");
+        }
         return Optional.of(new ConnectorOperationTypeContract(
             string(contract, "input"),
-            contract.containsKey("output") ? Optional.of(string(contract, "output")) : Optional.empty()));
+            contract.containsKey("output") ? Optional.of(string(contract, "output")) : Optional.empty(),
+            contract.containsKey("mode")
+                ? ConnectorOperationTypeMode.valueOf(string(contract, "mode"))
+                : ConnectorOperationTypeMode.EXACT));
     }
 
     private static ConnectorProviderVersion version(Map<String, Object> value) {
