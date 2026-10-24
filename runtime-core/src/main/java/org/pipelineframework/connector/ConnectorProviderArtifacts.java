@@ -29,6 +29,11 @@ public final class ConnectorProviderArtifacts {
                 ConnectorDescriptors.provider(provider),
                 provider.operations().stream().map(ConnectorDescriptors::operation).toList()))
             .toList();
+        return manifestFromArtifacts(artifacts);
+    }
+
+    public static ConnectorProviderManifest manifestFromArtifacts(List<ConnectorProviderArtifactDescriptor> artifacts) {
+        Objects.requireNonNull(artifacts, "provider artifacts must not be null");
         boolean hasApplicationProjectedTypes = artifacts.stream()
             .flatMap(artifact -> artifact.operations().stream())
             .flatMap(operation -> operation.typeContract().stream())
