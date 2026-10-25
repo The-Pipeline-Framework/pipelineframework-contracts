@@ -23,6 +23,63 @@ import org.pipelineframework.protocol.ProtocolTypeIdentity;
 
 class ConnectorProviderArtifactsTest {
     @Test
+    void preservesSchemaSevenForProvidersWithoutApplicationProjection() {
+        var provider = new ConnectorProvider<String>() {
+            @Override public ConnectorProviderId id() {
+                return ConnectorProviderId.of("acme.exact");
+            }
+
+            @Override public ConnectorProviderVersion version() {
+                return new ConnectorProviderVersion(1, 0);
+            }
+
+            @Override public List<ConnectorOperation> operations() {
+                return List.of(new BlockingStringQuery());
+            }
+        };
+
+        assertEquals(7, ConnectorProviderArtifacts.manifest(List.of(provider)).schemaVersion());
+    }
+
+    @Test
+    void usesSchemaEightWhenProviderDeclaresApplicationProjection() {
+        var provider = new ConnectorProvider<String>() {
+            @Override public ConnectorProviderId id() {
+                return ConnectorProviderId.of("acme.projector");
+            }
+
+            @Override public ConnectorProviderVersion version() {
+                return new ConnectorProviderVersion(1, 0);
+            }
+
+            @Override public List<ConnectorOperation> operations() {
+                return List.of(new ProjectedQuery());
+            }
+        };
+
+        assertEquals(8, ConnectorProviderArtifacts.manifest(List.of(provider)).schemaVersion());
+    }
+
+    @Test
+    void serializesApplicationProjectionOnlyWhenDeclared() {
+        var contract = new ConnectorOperationTypeContract("java.lang.Object",
+            Optional.of("java.lang.Object"), ConnectorOperationTypeMode.APPLICATION_PROJECTED);
+        var operation = new ConnectorOperationDescriptor("infer", ConnectorOperationKind.QUERY, 1,
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(contract));
+        var manifest = new ConnectorProviderManifest(ConnectorProviderManifest.CURRENT_SCHEMA_VERSION,
+            List.of(new ConnectorProviderArtifactDescriptor(
+                new ConnectorProviderDescriptor(ConnectorProviderId.of("acme.projector"),
+                    new ConnectorProviderVersion(1, 0)), List.of(operation))));
+        assertThrows(IllegalArgumentException.class, () ->
+            new ConnectorProviderManifest(7, manifest.providers()));
+
+        String json = ConnectorProviderArtifacts.json(manifest);
+        assertTrue(json.contains("\"mode\":\"APPLICATION_PROJECTED\""));
+        assertEquals(manifest, ConnectorProviderManifestReader.read(
+            new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8))));
+    }
+
+    @Test
     void escapesEveryJsonControlCharacterInAuthorMetadata() {
         ConnectorConfigSchemaDescriptor schema = new ConnectorConfigSchemaDescriptor(
             "acme.control",
@@ -43,7 +100,7 @@ class ConnectorProviderArtifactsTest {
         assertTrue(json.contains("line\\nfeed"));
         assertTrue(json.contains("tab\\tvalue"));
         assertTrue(json.contains("unit\\u0001separator"));
-        assertTrue(json.contains("\"schemaVersion\":7"));
+        assertTrue(json.contains("\"schemaVersion\":8"));
         assertTrue(!json.contains("executionCapabilities"));
         assertEquals(manifest, parsed);
     }
@@ -55,6 +112,14 @@ class ConnectorProviderArtifactsTest {
         ConnectorOperationTypeContract contract = descriptor.typeContract().orElseThrow();
         assertEquals("string", contract.inputType());
         assertEquals(Optional.of("integer"), contract.outputType());
+    }
+
+    @Test
+    void projectsDeclaredQueryTypeModeIntoProviderMetadata() {
+        var contract = ConnectorDescriptors.operation(new ProjectedQuery()).typeContract().orElseThrow();
+        assertEquals(ConnectorOperationTypeMode.APPLICATION_PROJECTED, contract.mode());
+        assertEquals("java.lang.Object", contract.inputType());
+        assertEquals(Optional.of("java.lang.Object"), contract.outputType());
     }
 
     @Test
@@ -176,6 +241,19 @@ class ConnectorProviderArtifactsTest {
             QueryInvocation<String, ConnectorConfigurationDocument, Integer> invocation
         ) {
             return CompletableFuture.completedFuture(new QueryOutcome.Found<>(1));
+        }
+    }
+
+    private static final class ProjectedQuery
+        implements QueryOperation<Object, ConnectorConfigurationDocument, Object> {
+        @Override public String id() { return "projected"; }
+        @Override public ConnectorOperationTypeMode typeMode() {
+            return ConnectorOperationTypeMode.APPLICATION_PROJECTED;
+        }
+        @Override public CompletionStage<QueryOutcome<Object>> query(
+            QueryInvocation<Object, ConnectorConfigurationDocument, Object> invocation
+        ) {
+            return CompletableFuture.completedFuture(new QueryOutcome.Found<>(invocation.input()));
         }
     }
 

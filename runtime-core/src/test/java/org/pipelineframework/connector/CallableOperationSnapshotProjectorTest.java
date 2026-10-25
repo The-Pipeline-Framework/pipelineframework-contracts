@@ -133,6 +133,12 @@ class CallableOperationSnapshotProjectorTest {
         assertDigestChanges(baseline, queryDefinition(
             baseline.identity(), TYPES,
             new QueryCapabilities(QueryCacheability.CACHEABLE, Optional.of(Duration.ofMinutes(1)), Optional.empty())));
+        var objectTypes = new ConnectorOperationTypeContract("java.lang.Object",
+            Optional.of("java.lang.Object"));
+        assertDigestChanges(queryDefinition(baseline.identity(), objectTypes, QueryCapabilities.cacheable()),
+            queryDefinition(baseline.identity(), new ConnectorOperationTypeContract(
+                "java.lang.Object", Optional.of("java.lang.Object"),
+                ConnectorOperationTypeMode.APPLICATION_PROJECTED), QueryCapabilities.cacheable()));
     }
 
     @Test

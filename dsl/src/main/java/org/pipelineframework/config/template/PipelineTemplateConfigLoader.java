@@ -16,6 +16,7 @@
 
 package org.pipelineframework.config.template;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.Charset;
@@ -107,6 +108,29 @@ public class PipelineTemplateConfigLoader {
         this.envLookup = envLookup == null ? key -> null : envLookup;
         this.warningReporter = warningReporter == null ? LOG::warning : warningReporter;
         this.protocolTypeRegistry = Objects.requireNonNull(protocolTypeRegistry, "protocol type registry must not be null");
+    }
+
+    /** A caller-owned configuration source prepared for template loading. */
+    public interface PreparedSource extends AutoCloseable {
+        Path configPath();
+
+        @Override
+        void close() throws IOException;
+    }
+
+    @FunctionalInterface
+    public interface SourcePreparer {
+        PreparedSource prepare(Path applicationConfig);
+    }
+
+    /** Load a prepared source, closing it after the canonical template parse. */
+    public PipelineTemplateConfig load(Path configPath, SourcePreparer preparer) {
+        Objects.requireNonNull(preparer, "source preparer must not be null");
+        try (PreparedSource source = preparer.prepare(configPath)) {
+            return load(source.configPath());
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to close prepared pipeline configuration", failure);
+        }
     }
 
     /**

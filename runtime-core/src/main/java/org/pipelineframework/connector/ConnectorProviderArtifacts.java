@@ -29,7 +29,17 @@ public final class ConnectorProviderArtifacts {
                 ConnectorDescriptors.provider(provider),
                 provider.operations().stream().map(ConnectorDescriptors::operation).toList()))
             .toList();
-        return new ConnectorProviderManifest(ConnectorProviderManifest.CURRENT_SCHEMA_VERSION, artifacts);
+        return manifestFromArtifacts(artifacts);
+    }
+
+    public static ConnectorProviderManifest manifestFromArtifacts(List<ConnectorProviderArtifactDescriptor> artifacts) {
+        Objects.requireNonNull(artifacts, "provider artifacts must not be null");
+        boolean hasApplicationProjectedTypes = artifacts.stream()
+            .flatMap(artifact -> artifact.operations().stream())
+            .flatMap(operation -> operation.typeContract().stream())
+            .anyMatch(contract -> contract.mode() == ConnectorOperationTypeMode.APPLICATION_PROJECTED);
+        return new ConnectorProviderManifest(hasApplicationProjectedTypes
+            ? ConnectorProviderManifest.CURRENT_SCHEMA_VERSION : 7, artifacts);
     }
 
     public static void write(Path classesDirectory, Collection<? extends ConnectorProvider<?>> providers) {
@@ -177,6 +187,9 @@ public final class ConnectorProviderArtifacts {
         operation.typeContract().ifPresent(contract -> {
             json.append(",\"typeContract\":{\"input\":").append(quote(contract.inputType()));
             contract.outputType().ifPresent(output -> json.append(",\"output\":").append(quote(output)));
+            if (contract.mode() != ConnectorOperationTypeMode.EXACT) {
+                json.append(",\"mode\":").append(quote(contract.mode().name()));
+            }
             json.append('}');
         });
         if (!operation.callbacks().isEmpty()) {

@@ -16,6 +16,24 @@ import static org.junit.jupiter.api.Assertions.*;
 class ConnectorProviderManifestReaderTest {
 
     @Test
+    void readsExplicitApplicationProjectionAndRejectsNonObjectContracts() {
+        String json = """
+            {"schemaVersion":8,"providers":[{"id":"acme.projector","version":{"major":1,"minor":0},
+            "operations":[{"id":"infer","kind":"tpf:query","majorVersion":1,
+            "typeContract":{"input":"java.lang.Object","output":"java.lang.Object",
+            "mode":"APPLICATION_PROJECTED"},"queryCardinality":"ONE_TO_ONE"}]}]}
+            """;
+        var contract = ConnectorProviderManifestReader.read(input(json))
+            .providers().getFirst().operations().getFirst().typeContract().orElseThrow();
+        assertEquals(ConnectorOperationTypeMode.APPLICATION_PROJECTED, contract.mode());
+        assertThrows(IllegalArgumentException.class, () -> ConnectorProviderManifestReader.read(
+            input(json.replace("\"schemaVersion\":8", "\"schemaVersion\":7"))));
+        assertThrows(IllegalArgumentException.class, () -> new ConnectorOperationTypeContract(
+            "string", java.util.Optional.of("java.lang.Object"),
+            ConnectorOperationTypeMode.APPLICATION_PROJECTED));
+    }
+
+    @Test
     void readsGeneratedNormalizedTypeContractsAndKeepsVersionOneCompatible() {
         ConnectorProviderManifest current = ConnectorProviderManifestReader.read(input("""
             {"schemaVersion":2,"providers":[{"id":"metadata.provider","version":{"major":1,"minor":0},
