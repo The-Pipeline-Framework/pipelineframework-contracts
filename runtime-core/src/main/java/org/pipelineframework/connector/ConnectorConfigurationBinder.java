@@ -274,7 +274,7 @@ public final class ConnectorConfigurationBinder {
         }
     }
 
-    private static Class<?> optionalType(Type genericType, String field) {
+    static Class<?> optionalType(Type genericType, String field) {
         if (genericType instanceof ParameterizedType parameterized) {
             Type optionalType = parameterized.getActualTypeArguments()[0];
             if (optionalType instanceof Class<?> type) {

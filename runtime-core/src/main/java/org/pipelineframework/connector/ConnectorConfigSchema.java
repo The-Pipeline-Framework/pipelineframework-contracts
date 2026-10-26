@@ -40,6 +40,9 @@ public final class ConnectorConfigSchema<T> {
     private static ConnectorConfigFieldDescriptor field(RecordComponent component) {
         Class<?> type = component.getType();
         boolean required = type != Optional.class;
+        if (!required) {
+            type = ConnectorConfigurationBinder.optionalType(component.getGenericType(), component.getName());
+        }
         if (type.isEnum()) {
             return new ConnectorConfigFieldDescriptor(
                 component.getName(),

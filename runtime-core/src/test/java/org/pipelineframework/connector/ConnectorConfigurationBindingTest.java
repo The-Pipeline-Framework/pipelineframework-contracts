@@ -135,6 +135,25 @@ class ConnectorConfigurationBindingTest {
     }
 
     @Test
+    void optionalEnumSchemaRetainsAllowedValues() {
+        ConnectorConfigSchema<OptionalModeConfig> schema =
+            ConnectorConfigSchema.record(OptionalModeConfig.class, "fake.config.optionalmode", 1);
+        ConnectorConfigFieldDescriptor field = schema.descriptor().fields().getFirst();
+        assertEquals(ConnectorConfigValueType.ENUM, field.type());
+        assertFalse(field.required());
+        assertEquals(List.of("FAST", "SAFE"), field.enumValues());
+
+        ConnectorConfigurationDocument present = new ConnectorConfigurationDocument(Map.of("mode", "SAFE"));
+        ConnectorConfigurationValidator.validate(schema.descriptor(), present, "optional mode");
+        assertEquals(Optional.of(Mode.SAFE),
+            ConnectorConfigurationBinder.bind(schema, present, "optional mode").mode());
+        assertEquals(Optional.empty(), ConnectorConfigurationBinder.bind(
+            schema, new ConnectorConfigurationDocument(Map.of()), "optional mode").mode());
+        assertThrows(ConnectorConfigurationException.class, () -> ConnectorConfigurationValidator.validate(
+            schema.descriptor(), new ConnectorConfigurationDocument(Map.of("mode", "UNKNOWN")), "optional mode"));
+    }
+
+    @Test
     void configurationDocumentPreservesDeclaredMapOrder() {
         Map<String, Object> ordered = new LinkedHashMap<>();
         ordered.put("score", "asc");
@@ -187,6 +206,9 @@ class ConnectorConfigurationBindingTest {
     }
 
     record ListConfig(List<String> uniqueBy) {
+    }
+
+    record OptionalModeConfig(Optional<Mode> mode) {
     }
 
     private enum Mode {
