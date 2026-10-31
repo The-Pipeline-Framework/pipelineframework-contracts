@@ -38,7 +38,8 @@ final class ProtocolTypeResolver {
         pipelines.forEach((id, pipeline) -> resolvedPipelines.put(id, new PipelineTemplateDefinition(
             normalizeNullableContract(pipeline.inputContract()),
             normalizeNullableContract(pipeline.outputContract()),
-            pipeline.steps().stream().map(this::normalizeStep).toList())));
+            pipeline.steps().stream().map(this::normalizeStep).toList(),
+            pipeline.recur().stream().map(this::normalizeContract).toList())));
         PipelineTemplateTypeModel model = new PipelineTemplateTypeModel(
             definitions, representationMappings, representationProviderConfigurations, identities, javaTypeBindings);
         return new Resolved(model, resolvedInput, resolvedOutput, resolvedSteps, Map.copyOf(resolvedPipelines));

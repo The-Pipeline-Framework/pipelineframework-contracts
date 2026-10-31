@@ -276,6 +276,9 @@ public class PipelineTemplateConfigLoader {
         Map<String, PipelineObjectSourceConfig> sources = readSources(rootMap);
         Map<String, PipelineObjectPublishConfig> publish = readPublishTargets(rootMap);
         List<PipelineTemplateStep> steps = readSteps(rootMap, version);
+        if (rootMap.containsKey("recur")) {
+            throw new IllegalStateException("recur is supported on local pipeline definitions under pipelines, not the root");
+        }
         Map<String, PipelineTemplateDefinition> pipelines = readV3PipelineDefinitions(rootMap, version);
         Map<String, PipelineTemplateAspect> aspects = readAspects(rootMap);
         PipelineTemplateMaterialization materialization = readMaterialization(rootMap);
@@ -300,7 +303,8 @@ public class PipelineTemplateConfigLoader {
         pipelines = resolved.pipelines();
         validateV3Contracts(typeModel, inputContract, outputContract, steps);
         pipelines.forEach((id, definition) ->
-            validateV3Contracts(typeModel, definition.inputContract(), definition.outputContract(), definition.steps()));
+            validateV3Contracts(typeModel, definition.inputContract(), definition.outputContract(), definition.steps(),
+                definition.recur()));
         Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads = readHttpPayloads(
             rootMap, typeModel, sources, publish, platform);
         if (!httpPayloads.isEmpty() && (!"REST".equals(transport)
@@ -449,7 +453,16 @@ public class PipelineTemplateConfigLoader {
                 throw new IllegalStateException("Pipeline definition '" + id
                     + "' contains deferred completion; nested pipeline definitions do not support await: yet.");
             }
-            if (parsed.putIfAbsent(normalizedId, new PipelineTemplateDefinition(input, output, steps)) != null) {
+            List<String> recur = List.of();
+            if (definition.containsKey("recur")) {
+                if (!(definition.get("recur") instanceof List<?> selected) || selected.isEmpty()
+                    || selected.stream().anyMatch(value -> !(value instanceof String type) || type.isBlank())) {
+                    throw new IllegalStateException("Pipeline definition '" + id
+                        + "' recur must be a non-empty list of concrete canonical input types.");
+                }
+                recur = ((List<?>) definition.get("recur")).stream().map(value -> ((String) value).trim()).toList();
+            }
+            if (parsed.putIfAbsent(normalizedId, new PipelineTemplateDefinition(input, output, steps, recur)) != null) {
                 throw new IllegalStateException("Duplicate pipeline definition ID '" + id + "'.");
             }
         }
@@ -459,7 +472,7 @@ public class PipelineTemplateConfigLoader {
     private void rejectUnexpectedDefinitionKeys(String id, Map<?, ?> definition) {
         for (Object rawKey : definition.keySet()) {
             String key = stringify(rawKey);
-            if (!"input".equals(key) && !"output".equals(key) && !"steps".equals(key)) {
+            if (!"input".equals(key) && !"output".equals(key) && !"steps".equals(key) && !"recur".equals(key)) {
                 throw new IllegalStateException("Pipeline definition '" + id
                     + "' contains unsupported version: 3 property '" + key + "'.");
             }
@@ -982,11 +995,37 @@ public class PipelineTemplateConfigLoader {
         String outputContract,
         List<PipelineTemplateStep> steps
     ) {
+        validateV3Contracts(typeModel, inputContract, outputContract, steps, List.of());
+    }
+
+    private void validateV3Contracts(
+        PipelineTemplateTypeModel typeModel,
+        String inputContract,
+        String outputContract,
+        List<PipelineTemplateStep> steps,
+        List<String> recur
+    ) {
         if (inputContract != null && !typeModel.contains(inputContract)) {
             throw new IllegalStateException("Pipeline contract references unknown type '" + inputContract + "'.");
         }
         if (outputContract != null && !typeModel.contains(outputContract)) {
             throw new IllegalStateException("Pipeline contract references unknown type '" + outputContract + "'.");
+        }
+        for (String type : recur) {
+            if (!typeModel.contains(type) || !typeModel.isAssignable(type, inputContract)) {
+                throw new IllegalStateException("Recurrent outcome '" + type
+                    + "' must be assignable to definition input '" + inputContract + "'.");
+            }
+            var resolved = typeModel.resolveAliases(new PipelineTemplateTypeReference.Named(type));
+            if (!(resolved instanceof PipelineTemplateTypeReference.Named named)
+                || !type.equals(named.name())
+                || typeModel.definitions().get(named.name()) instanceof PipelineTemplateTypeDefinition.UnionType) {
+                throw new IllegalStateException("Recurrent outcome '" + type + "' must be a concrete canonical type.");
+            }
+            if (containsOutcome(typeModel, new PipelineTemplateTypeReference.Named(outputContract), type)) {
+                throw new IllegalStateException("Recurrent outcome '" + type
+                    + "' must not also be a definition output alternative.");
+            }
         }
         for (PipelineTemplateStep step : steps) {
             requireLogicalContract(step.name(), "input", step.inputTypeName());
@@ -1038,10 +1077,37 @@ public class PipelineTemplateConfigLoader {
             }
         }
         PipelineTemplateStep last = steps.getLast();
-        if (outputContract != null && !typeModel.isAssignable(last.outputTypeName(), outputContract)) {
+        if (outputContract != null && !(recur.isEmpty()
+            ? typeModel.isAssignable(last.outputTypeName(), outputContract)
+            : isRecurrentOutcomeCovered(typeModel, new PipelineTemplateTypeReference.Named(last.outputTypeName()),
+                outputContract, recur))) {
             throw new IllegalStateException("Final step '" + last.name() + "' output '" + last.outputTypeName()
                 + "' is not assignable to pipeline output contract '" + outputContract + "'.");
         }
+    }
+
+    private boolean isRecurrentOutcomeCovered(PipelineTemplateTypeModel typeModel,
+        PipelineTemplateTypeReference outcome, String outputContract, List<String> recur) {
+        PipelineTemplateTypeReference resolved = typeModel.resolveAliases(outcome);
+        if (recur.contains(resolved.name()) || typeModel.isAssignable(resolved.name(), outputContract)) {
+            return true;
+        }
+        return resolved instanceof PipelineTemplateTypeReference.Named named
+            && typeModel.definitions().get(named.name()) instanceof PipelineTemplateTypeDefinition.UnionType union
+            && union.variants().values().stream()
+                .allMatch(variant -> isRecurrentOutcomeCovered(typeModel, variant.payload(), outputContract, recur));
+    }
+
+    private boolean containsOutcome(PipelineTemplateTypeModel typeModel,
+        PipelineTemplateTypeReference output, String outcome) {
+        PipelineTemplateTypeReference resolved = typeModel.resolveAliases(output);
+        if (typeModel.isAssignable(outcome, resolved.name())) {
+            return true;
+        }
+        return resolved instanceof PipelineTemplateTypeReference.Named named
+            && typeModel.definitions().get(named.name()) instanceof PipelineTemplateTypeDefinition.UnionType union
+            && union.variants().values().stream()
+                .anyMatch(variant -> containsOutcome(typeModel, variant.payload(), outcome));
     }
 
     private boolean isRecordContract(PipelineTemplateTypeModel typeModel, String contract) {
@@ -1681,6 +1747,10 @@ public class PipelineTemplateConfigLoader {
                 continue;
             }
             String name = readString(stepMap, "name");
+            if (stepMap.containsKey("recur")) {
+                throw new IllegalStateException("Step '" + name
+                    + "' declares recur; move recur to the pipeline definition under pipelines.");
+            }
             rejectBranchPredicateKeys(stepMap, name);
             String cardinality = readString(stepMap, "cardinality");
             PipelineTemplateStepContractSyntax.StepContracts contracts =
