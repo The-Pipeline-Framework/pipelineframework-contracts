@@ -29,6 +29,55 @@ class PipelineTemplateConfigLoaderTest {
     Path tempDir;
 
     @Test
+    void loadsDefinitionOwnedRecurrenceAndRejectsInvalidContinuingOutcomes() throws Exception {
+        for (String recur : List.of("[TurnState]", "[]", "[Review]", "[TurnState, TurnState]", "TurnState")) {
+            Path file = tempDir.resolve("recurrence.yaml");
+            Files.writeString(file, """
+                version: 3
+                appName: Recurrent agent
+                basePackage: com.example
+                transport: LOCAL
+                contract: { input: TurnState, output: AgentEnd }
+                types:
+                  TurnState: { fields: [[turn, int32]] }
+                  Review: { fields: [[prompt, string]] }
+                  Result: { fields: [[message, string]] }
+                  TurnOutcome: { variants: { again: TurnState, review: Review, finished: Result } }
+                  AgentEnd: { variants: { review: Review, finished: Result } }
+                pipelines:
+                  agent:
+                    input: TurnState
+                    output: AgentEnd
+                    recur: %s
+                    steps:
+                      - name: Decide next turn
+                        service: com.example.Advance
+                        cardinality: ONE_TO_ONE
+                        input: TurnState
+                        output: TurnOutcome
+                steps:
+                  - name: Run agent
+                    pipeline: agent
+                    cardinality: ONE_TO_ONE
+                    input: TurnState
+                    output: AgentEnd
+                """.formatted(recur));
+            if (recur.equals("[TurnState]")) {
+                var definition = new PipelineTemplateConfigLoader().load(file).pipelines().get("agent");
+                assertEquals(List.of("TurnState"), definition.recur());
+                assertEquals(1, definition.steps().size(), "The DSL preserves authored steps before compiler lowering");
+                Path rootRecurrence = tempDir.resolve("root-recurrence.yaml");
+                Files.writeString(rootRecurrence, Files.readString(file)
+                    .replace("contract: {", "recur: [TurnState]\ncontract: {"));
+                assertTrue(assertThrows(IllegalStateException.class,
+                    () -> new PipelineTemplateConfigLoader().load(rootRecurrence)).getMessage().contains("not the root"));
+            } else {
+                assertThrows(RuntimeException.class, () -> new PipelineTemplateConfigLoader().load(file), recur);
+            }
+        }
+    }
+
+    @Test
     void loadsPreparedSourceAndClosesIt() throws Exception {
         Path originalPath = tempDir.resolve("original.yaml");
         Path preparedPath = tempDir.resolve("prepared.yaml");
