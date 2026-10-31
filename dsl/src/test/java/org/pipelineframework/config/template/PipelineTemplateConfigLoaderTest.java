@@ -47,6 +47,8 @@ class PipelineTemplateConfigLoaderTest {
                   Unexpected: { fields: [[message, string]] }
                   TurnOutcome: { variants: { again: TurnState, review: Review, finished: Result } }
                   InvalidOutcome: { variants: { again: TurnState, review: Review, unexpected: Unexpected } }
+                  NestedOutcome: { variants: { nested: TurnOutcome } }
+                  NestedInvalidOutcome: { variants: { nested: InvalidOutcome } }
                   AgentEnd: { variants: { review: Review, finished: Result } }
                 pipelines:
                   agent:
@@ -85,9 +87,10 @@ class PipelineTemplateConfigLoaderTest {
                     assertTrue(error.getMessage().contains("Step '" + step + "'"), error.getMessage());
                     assertTrue(error.getMessage().contains("pipeline definition"), error.getMessage());
                 }
-                for (String output : List.of("TurnState", "Result", "Unexpected", "InvalidOutcome")) {
+                for (String output : List.of("TurnState", "Result", "Unexpected", "InvalidOutcome",
+                    "NestedOutcome", "NestedInvalidOutcome")) {
                     Files.writeString(file, yaml.replace("output: TurnOutcome", "output: " + output));
-                    if (output.equals("TurnState") || output.equals("Result")) {
+                    if (List.of("TurnState", "Result", "NestedOutcome").contains(output)) {
                         assertDoesNotThrow(() -> new PipelineTemplateConfigLoader().load(file));
                     } else {
                         var error = assertThrows(IllegalStateException.class,
@@ -96,6 +99,15 @@ class PipelineTemplateConfigLoaderTest {
                             error.getMessage());
                     }
                 }
+                for (String nested : List.of("TurnOutcome", "OutcomeAlias")) {
+                    String overlapping = yaml.replace("AgentEnd: { variants: { review: Review, finished: Result } }",
+                        "OutcomeAlias: { alias: TurnOutcome }\n  AgentEnd: { variants: { nested: " + nested + " } }");
+                    Files.writeString(file, overlapping);
+                    var error = assertThrows(IllegalStateException.class,
+                        () -> new PipelineTemplateConfigLoader().load(file));
+                    assertTrue(error.getMessage().contains("must not also be a definition output alternative"),
+                        error.getMessage());
+                }
             } else {
                 var error = assertThrows(RuntimeException.class, () -> new PipelineTemplateConfigLoader().load(file), recur);
                 if (recur.contains("TurnAlias")) {
@@ -103,6 +115,35 @@ class PipelineTemplateConfigLoaderTest {
                 }
             }
         }
+    }
+
+    @Test
+    void preservesTwoDistinctRecurrentTypesInAuthoredOrder() throws Exception {
+        Path file = tempDir.resolve("multiple-recurrent-types.yaml");
+        Files.writeString(file, """
+            version: 3
+            appName: Multiple continuing outcomes
+            basePackage: com.example
+            transport: LOCAL
+            contract: { input: AgentInput, output: Result }
+            types:
+              TurnState: { fields: [[turn, int32]] }
+              RetryState: { fields: [[attempt, int32]] }
+              Result: { fields: [[message, string]] }
+              AgentInput: { variants: { turn: TurnState, retry: RetryState } }
+              TurnOutcome: { variants: { turn: TurnState, retry: RetryState, done: Result } }
+            pipelines:
+              agent:
+                input: AgentInput
+                output: Result
+                recur: [RetryState, TurnState]
+                steps:
+                  - { name: Advance, service: com.example.Advance, cardinality: ONE_TO_ONE, input: AgentInput, output: TurnOutcome }
+            steps:
+              - { name: Run agent, pipeline: agent, cardinality: ONE_TO_ONE, input: AgentInput, output: Result }
+            """);
+        var definition = new PipelineTemplateConfigLoader().load(file).pipelines().get("agent");
+        assertEquals(List.of("RetryState", "TurnState"), definition.recur());
     }
 
     @Test

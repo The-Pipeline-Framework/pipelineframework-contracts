@@ -1022,7 +1022,7 @@ public class PipelineTemplateConfigLoader {
                 || typeModel.definitions().get(named.name()) instanceof PipelineTemplateTypeDefinition.UnionType) {
                 throw new IllegalStateException("Recurrent outcome '" + type + "' must be a concrete canonical type.");
             }
-            if (typeModel.isAssignable(type, outputContract)) {
+            if (containsOutcome(typeModel, new PipelineTemplateTypeReference.Named(outputContract), type)) {
                 throw new IllegalStateException("Recurrent outcome '" + type
                     + "' must not also be a definition output alternative.");
             }
@@ -1096,6 +1096,18 @@ public class PipelineTemplateConfigLoader {
             && typeModel.definitions().get(named.name()) instanceof PipelineTemplateTypeDefinition.UnionType union
             && union.variants().values().stream()
                 .allMatch(variant -> isRecurrentOutcomeCovered(typeModel, variant.payload(), outputContract, recur));
+    }
+
+    private boolean containsOutcome(PipelineTemplateTypeModel typeModel,
+        PipelineTemplateTypeReference output, String outcome) {
+        PipelineTemplateTypeReference resolved = typeModel.resolveAliases(output);
+        if (typeModel.isAssignable(outcome, resolved.name())) {
+            return true;
+        }
+        return resolved instanceof PipelineTemplateTypeReference.Named named
+            && typeModel.definitions().get(named.name()) instanceof PipelineTemplateTypeDefinition.UnionType union
+            && union.variants().values().stream()
+                .anyMatch(variant -> containsOutcome(typeModel, variant.payload(), outcome));
     }
 
     private boolean isRecordContract(PipelineTemplateTypeModel typeModel, String contract) {
