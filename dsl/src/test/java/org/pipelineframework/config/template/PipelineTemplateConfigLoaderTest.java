@@ -30,7 +30,8 @@ class PipelineTemplateConfigLoaderTest {
 
     @Test
     void loadsDefinitionOwnedRecurrenceAndRejectsInvalidContinuingOutcomes() throws Exception {
-        for (String recur : List.of("[TurnState]", "[]", "[Review]", "[TurnState, TurnState]", "TurnState")) {
+        for (String recur : List.of("[TurnState]", "[]", "[Review]", "[TurnState, TurnState]", "TurnState",
+            "[TurnAlias]", "[TurnState, TurnAlias]")) {
             Path file = tempDir.resolve("recurrence.yaml");
             Files.writeString(file, """
                 version: 3
@@ -40,9 +41,12 @@ class PipelineTemplateConfigLoaderTest {
                 contract: { input: TurnState, output: AgentEnd }
                 types:
                   TurnState: { fields: [[turn, int32]] }
+                  TurnAlias: { alias: TurnState }
                   Review: { fields: [[prompt, string]] }
                   Result: { fields: [[message, string]] }
+                  Unexpected: { fields: [[message, string]] }
                   TurnOutcome: { variants: { again: TurnState, review: Review, finished: Result } }
+                  InvalidOutcome: { variants: { again: TurnState, review: Review, unexpected: Unexpected } }
                   AgentEnd: { variants: { review: Review, finished: Result } }
                 pipelines:
                   agent:
@@ -71,8 +75,32 @@ class PipelineTemplateConfigLoaderTest {
                     .replace("contract: {", "recur: [TurnState]\ncontract: {"));
                 assertTrue(assertThrows(IllegalStateException.class,
                     () -> new PipelineTemplateConfigLoader().load(rootRecurrence)).getMessage().contains("not the root"));
+                String yaml = Files.readString(file);
+                for (String step : List.of("Decide next turn", "Run agent")) {
+                    String indent = step.equals("Decide next turn") ? "        " : "    ";
+                    Files.writeString(file, yaml.replace("name: " + step,
+                        "name: " + step + "\n" + indent + "recur: [TurnState]"));
+                    var error = assertThrows(IllegalStateException.class,
+                        () -> new PipelineTemplateConfigLoader().load(file));
+                    assertTrue(error.getMessage().contains("Step '" + step + "'"), error.getMessage());
+                    assertTrue(error.getMessage().contains("pipeline definition"), error.getMessage());
+                }
+                for (String output : List.of("TurnState", "Result", "Unexpected", "InvalidOutcome")) {
+                    Files.writeString(file, yaml.replace("output: TurnOutcome", "output: " + output));
+                    if (output.equals("TurnState") || output.equals("Result")) {
+                        assertDoesNotThrow(() -> new PipelineTemplateConfigLoader().load(file));
+                    } else {
+                        var error = assertThrows(IllegalStateException.class,
+                            () -> new PipelineTemplateConfigLoader().load(file));
+                        assertTrue(error.getMessage().contains("Final step 'Decide next turn' output '" + output + "'"),
+                            error.getMessage());
+                    }
+                }
             } else {
-                assertThrows(RuntimeException.class, () -> new PipelineTemplateConfigLoader().load(file), recur);
+                var error = assertThrows(RuntimeException.class, () -> new PipelineTemplateConfigLoader().load(file), recur);
+                if (recur.contains("TurnAlias")) {
+                    assertTrue(error.getMessage().contains("must be a concrete canonical type"), error.getMessage());
+                }
             }
         }
     }
