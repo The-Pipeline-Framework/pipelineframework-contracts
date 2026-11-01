@@ -296,12 +296,13 @@ public class PipelineTemplateConfigLoader {
             protocolTypeRegistry, typeDeclarations.definitions()).resolve(
                 typeDeclarations.representationMappings(), typeDeclarations.providerConfigurations(),
                 typeDeclarations.javaTypeBindings(),
-                inputContract, outputContract, steps, pipelines);
+                inputContract, outputContract, steps, recur, pipelines);
         PipelineTemplateTypeModel typeModel = resolved.typeModel();
         inputContract = resolved.inputContract();
         outputContract = resolved.outputContract();
         steps = resolved.steps();
         pipelines = resolved.pipelines();
+        recur = resolved.recur();
         validateV3Contracts(typeModel, inputContract, outputContract, steps, recur);
         pipelines.forEach((id, definition) ->
             validateV3Contracts(typeModel, definition.inputContract(), definition.outputContract(), definition.steps(),

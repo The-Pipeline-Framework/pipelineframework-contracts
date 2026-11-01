@@ -25,6 +25,7 @@ final class ProtocolTypeResolver {
         String inputContract,
         String outputContract,
         List<PipelineTemplateStep> steps,
+        List<String> recur,
         Map<String, PipelineTemplateDefinition> pipelines
     ) {
         List<String> authoredNames = List.copyOf(definitions.keySet());
@@ -40,9 +41,10 @@ final class ProtocolTypeResolver {
             normalizeNullableContract(pipeline.outputContract()),
             pipeline.steps().stream().map(this::normalizeStep).toList(),
             pipeline.recur().stream().map(this::normalizeContract).toList())));
+        List<String> resolvedRecur = recur.stream().map(this::normalizeContract).toList();
         PipelineTemplateTypeModel model = new PipelineTemplateTypeModel(
             definitions, representationMappings, representationProviderConfigurations, identities, javaTypeBindings);
-        return new Resolved(model, resolvedInput, resolvedOutput, resolvedSteps, Map.copyOf(resolvedPipelines));
+        return new Resolved(model, resolvedInput, resolvedOutput, resolvedSteps, resolvedRecur, Map.copyOf(resolvedPipelines));
     }
 
     private PipelineTemplateStep normalizeStep(PipelineTemplateStep step) {
@@ -144,6 +146,7 @@ final class ProtocolTypeResolver {
         String inputContract,
         String outputContract,
         List<PipelineTemplateStep> steps,
+        List<String> recur,
         Map<String, PipelineTemplateDefinition> pipelines
     ) {
     }

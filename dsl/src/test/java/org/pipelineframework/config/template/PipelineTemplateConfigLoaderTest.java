@@ -3093,4 +3093,24 @@ class PipelineTemplateConfigLoaderTest {
         assertTrue(exception.getMessage().contains(
             "Canonical Java type 'org.example.block.DocumentBoundary' cannot be bound to both"));
     }
+    @Test
+    void normalizesContributedRootRecurrenceBeforeValidatingOutcomes() throws Exception {
+        var config = loader(protocolObservation()).load(write("contributed-root-recur.yaml", """
+            version: 3
+            appName: Contributed recurrence
+            basePackage: com.example.protocol
+            transport: LOCAL
+            types:
+              Marker: { fields: [[value, string]] }
+            contract: { input: <tpf.test.ProtocolObservation>, output: Marker }
+            recur: [<tpf.test.ProtocolObservation>]
+            steps:
+              - name: Observe
+                cardinality: ONE_TO_ONE
+                input: <tpf.test.ProtocolObservation>
+                output: <tpf.test.ProtocolObservation>
+            """));
+        assertEquals(List.of("ProtocolObservation"), config.recur());
+    }
+
 }
