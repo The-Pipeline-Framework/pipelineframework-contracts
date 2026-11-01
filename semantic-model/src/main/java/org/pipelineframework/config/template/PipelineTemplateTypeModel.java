@@ -199,6 +199,33 @@ public final class PipelineTemplateTypeModel {
         return current;
     }
 
+    /** Resolves aliases and expands union payloads into sorted, immutable concrete canonical names. */
+    public Set<String> concreteTypeNames(String typeName) {
+        var names = new java.util.TreeSet<String>();
+        collectConcreteTypeNames(reference(typeName), new java.util.HashSet<>(), names);
+        return Collections.unmodifiableSortedSet(names);
+    }
+
+    private void collectConcreteTypeNames(PipelineTemplateTypeReference reference,
+        Set<String> visiting, Set<String> names) {
+        var resolved = resolveAliases(reference);
+        if (resolved instanceof PipelineTemplateTypeReference.Scalar) {
+            names.add(resolved.name());
+            return;
+        }
+        var definition = definition(resolved.name()).orElseThrow(() ->
+            new IllegalArgumentException("Unknown canonical input type '" + resolved.name() + "'"));
+        if (definition instanceof PipelineTemplateTypeDefinition.UnionType union) {
+            if (!visiting.add(union.name())) {
+                throw new IllegalStateException("Cyclic accepted union '" + union.name() + "'");
+            }
+            union.variants().values().forEach(variant -> collectConcreteTypeNames(variant.payload(), visiting, names));
+            visiting.remove(union.name());
+        } else {
+            names.add(resolved.name());
+        }
+    }
+
     public boolean isAssignable(String source, String target) {
         if (Objects.equals(source, target)) {
             return true;

@@ -840,6 +840,22 @@ public class PipelineYamlConfigLoader {
         if (awaitMap.containsKey("scope")) {
             throw new IllegalArgumentException("step '" + stepName + "' await.scope is not supported");
         }
+        List<String> acceptedTypes = List.of();
+        if (awaitMap.containsKey("accepts")) {
+            if (!(awaitMap.get("accepts") instanceof List<?> values) || values.isEmpty()
+                || values.stream().anyMatch(value -> !(value instanceof String text) || text.isBlank())) {
+                throw new IllegalArgumentException("step '" + stepName
+                    + "' await.accepts must contain non-blank canonical type references");
+            }
+            acceptedTypes = values.stream().map(String.class::cast).map(String::trim).toList();
+        }
+        Optional<String> branchOutput = Optional.empty();
+        if (awaitMap.containsKey("output")) {
+            if (!(awaitMap.get("output") instanceof String outputType) || outputType.isBlank()) {
+                throw new IllegalArgumentException("step '" + stepName + "' await.output must be a canonical type reference");
+            }
+            branchOutput = Optional.of(outputType.trim());
+        }
         PipelineYamlAwaitCorrelation correlation = readAwaitCorrelation(awaitMap);
         if (awaitMap.containsKey("callback")) {
             if (awaitMap.containsKey("transport") || awaitMap.containsKey("idempotency")
@@ -855,11 +871,11 @@ public class PipelineYamlConfigLoader {
             return new PipelineYamlAwaitConfig(correlation, Optional.empty(), completion,
                 Optional.of(new PipelineYamlAwaitCallback(
                     readRequiredString(callback, "name", "callback"), readRequiredString(callback, "endpointResolver", "callback"),
-                    readRequiredString(callback, "authenticator", "callback"))));
+                    readRequiredString(callback, "authenticator", "callback"))), acceptedTypes, branchOutput);
         }
         PipelineYamlAwaitTransport transport = readAwaitTransport(awaitMap, stepName);
         Optional<PipelineYamlAwaitCompletion> completion = readAwaitCompletion(awaitMap, stepName);
-        return new PipelineYamlAwaitConfig(correlation, transport, completion);
+        return new PipelineYamlAwaitConfig(correlation, Optional.of(transport), completion, Optional.empty(), acceptedTypes, branchOutput);
     }
 
     private String readAwaitTimeout(Map<?, ?> stepMap, String stepName) {

@@ -75,8 +75,7 @@ class PipelineTemplateConfigLoaderTest {
                 Path rootRecurrence = tempDir.resolve("root-recurrence.yaml");
                 Files.writeString(rootRecurrence, Files.readString(file)
                     .replace("contract: {", "recur: [TurnState]\ncontract: {"));
-                assertTrue(assertThrows(IllegalStateException.class,
-                    () -> new PipelineTemplateConfigLoader().load(rootRecurrence)).getMessage().contains("not the root"));
+                assertEquals(List.of("TurnState"), new PipelineTemplateConfigLoader().load(rootRecurrence).recur());
                 String yaml = Files.readString(file);
                 for (String step : List.of("Decide next turn", "Run agent")) {
                     String indent = step.equals("Decide next turn") ? "        " : "    ";
@@ -3094,4 +3093,24 @@ class PipelineTemplateConfigLoaderTest {
         assertTrue(exception.getMessage().contains(
             "Canonical Java type 'org.example.block.DocumentBoundary' cannot be bound to both"));
     }
+    @Test
+    void normalizesContributedRootRecurrenceBeforeValidatingOutcomes() throws Exception {
+        var config = loader(protocolObservation()).load(write("contributed-root-recur.yaml", """
+            version: 3
+            appName: Contributed recurrence
+            basePackage: com.example.protocol
+            transport: LOCAL
+            types:
+              Marker: { fields: [[value, string]] }
+            contract: { input: <tpf.test.ProtocolObservation>, output: Marker }
+            recur: [<tpf.test.ProtocolObservation>]
+            steps:
+              - name: Observe
+                cardinality: ONE_TO_ONE
+                input: <tpf.test.ProtocolObservation>
+                output: <tpf.test.ProtocolObservation>
+            """));
+        assertEquals(List.of("ProtocolObservation"), config.recur());
+    }
+
 }

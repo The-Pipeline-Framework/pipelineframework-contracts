@@ -24,13 +24,24 @@ import java.util.Optional;
  * @param correlation correlation configuration
  * @param transport transport adapter configuration
  * @param completion optional request-aware completion projection
+ * @param callback optional callback initiation contract
+ * @param accepts selected canonical operation-output variants
+ * @param output completed canonical outcome for the selected branch
  */
 public record PipelineYamlAwaitConfig(
     PipelineYamlAwaitCorrelation correlation,
     Optional<PipelineYamlAwaitTransport> transport,
     Optional<PipelineYamlAwaitCompletion> completion,
-    Optional<PipelineYamlAwaitCallback> callback
+    Optional<PipelineYamlAwaitCallback> callback,
+    java.util.List<String> accepts,
+    Optional<String> output
 ) {
+    public PipelineYamlAwaitConfig(PipelineYamlAwaitCorrelation correlation,
+        Optional<PipelineYamlAwaitTransport> transport, Optional<PipelineYamlAwaitCompletion> completion,
+        Optional<PipelineYamlAwaitCallback> callback) {
+        this(correlation, transport, completion, callback, java.util.List.of(), Optional.empty());
+    }
+
     public PipelineYamlAwaitConfig(PipelineYamlAwaitCorrelation correlation, PipelineYamlAwaitTransport transport,
         Optional<PipelineYamlAwaitCompletion> completion) {
         this(correlation, Optional.of(transport), completion, Optional.empty());
@@ -43,9 +54,20 @@ public record PipelineYamlAwaitConfig(
     }
 
     public PipelineYamlAwaitConfig {
+        output = java.util.Objects.requireNonNull(output, "output").map(String::trim);
+        accepts = java.util.List.copyOf(java.util.Objects.requireNonNull(accepts, "accepts"));
+        java.util.Objects.requireNonNull(callback, "callback");
+        if (output.filter(String::isBlank).isPresent() || accepts.isEmpty() != output.isEmpty()) {
+            throw new IllegalArgumentException("await.accepts and await.output must be declared together");
+        }
+        if (accepts.stream().anyMatch(value -> value.isBlank())) {
+            throw new IllegalArgumentException("await.accepts must contain non-blank canonical type references");
+        }
+        if (!accepts.isEmpty() && callback.isPresent()) {
+            throw new IllegalArgumentException("await.accepts supports post-operation transport completion only");
+        }
         correlation = correlation == null ? new PipelineYamlAwaitCorrelation("interactionId") : correlation;
         java.util.Objects.requireNonNull(transport, "transport");
-        java.util.Objects.requireNonNull(callback, "callback");
         if (transport.isPresent() == callback.isPresent()) {
             throw new IllegalArgumentException("await requires exactly one of transport or callback");
         }

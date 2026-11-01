@@ -68,9 +68,57 @@ public record PipelineTemplateConfig(
     String outputContract,
     PipelineTemplateTypeModel typeModel,
     Map<String, PipelineTemplateDefinition> pipelines,
-    Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads
+    Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads,
+    List<String> recur
 ) {
+
+    /** Compatibility constructor for declarations without root recurrence. */
+    public PipelineTemplateConfig(
+    int version,
+    String appName,
+    String basePackage,
+    String transport,
+    PipelinePlatform platform,
+    Map<String, PipelineTemplateMessage> messages,
+    Map<String, PipelineTemplateUnion> unions,
+    Map<String, PipelineObjectSourceConfig> sources,
+    Map<String, PipelineObjectPublishConfig> publish,
+    List<PipelineTemplateStep> steps,
+    Map<String, PipelineTemplateAspect> aspects,
+    PipelineInputBoundaryConfig input,
+    PipelineOutputBoundaryConfig output,
+    PipelineTemplateMaterialization materialization,
+    String inputContract,
+    String outputContract,
+    PipelineTemplateTypeModel typeModel,
+    Map<String, PipelineTemplateDefinition> pipelines,
+    Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads
+    ) {
+        this(
+            version,
+            appName,
+            basePackage,
+            transport,
+            platform,
+            messages,
+            unions,
+            sources,
+            publish,
+            steps,
+            aspects,
+            input,
+            output,
+            materialization,
+            inputContract,
+            outputContract,
+            typeModel,
+            pipelines,
+            httpPayloads,
+            List.of());
+    }
+
     public PipelineTemplateConfig {
+        recur = List.copyOf(java.util.Objects.requireNonNull(recur, "recur"));
         if (version <= 0) {
             throw new IllegalArgumentException("version must be > 0");
         }

@@ -179,6 +179,9 @@ public class PipelineTemplateConfigLoader {
         if (dialect == PipelineTemplateDialect.V3) {
             return loadV3(rootMap, version, appName, basePackage, transport, resolvedPlatform);
         }
+        if (rootMap.containsKey("recur")) {
+            throw new IllegalStateException("Definition recurrence requires version: 3");
+        }
 
         Map<String, PipelineTemplateMessage> rawMessages = dialect == PipelineTemplateDialect.V2
             ? readNamedTypes(rootMap)
@@ -276,9 +279,7 @@ public class PipelineTemplateConfigLoader {
         Map<String, PipelineObjectSourceConfig> sources = readSources(rootMap);
         Map<String, PipelineObjectPublishConfig> publish = readPublishTargets(rootMap);
         List<PipelineTemplateStep> steps = readSteps(rootMap, version);
-        if (rootMap.containsKey("recur")) {
-            throw new IllegalStateException("recur is supported on local pipeline definitions under pipelines, not the root");
-        }
+        List<String> recur = readRecur(rootMap, "$root");
         Map<String, PipelineTemplateDefinition> pipelines = readV3PipelineDefinitions(rootMap, version);
         Map<String, PipelineTemplateAspect> aspects = readAspects(rootMap);
         PipelineTemplateMaterialization materialization = readMaterialization(rootMap);
@@ -295,13 +296,14 @@ public class PipelineTemplateConfigLoader {
             protocolTypeRegistry, typeDeclarations.definitions()).resolve(
                 typeDeclarations.representationMappings(), typeDeclarations.providerConfigurations(),
                 typeDeclarations.javaTypeBindings(),
-                inputContract, outputContract, steps, pipelines);
+                inputContract, outputContract, steps, recur, pipelines);
         PipelineTemplateTypeModel typeModel = resolved.typeModel();
         inputContract = resolved.inputContract();
         outputContract = resolved.outputContract();
         steps = resolved.steps();
         pipelines = resolved.pipelines();
-        validateV3Contracts(typeModel, inputContract, outputContract, steps);
+        recur = resolved.recur();
+        validateV3Contracts(typeModel, inputContract, outputContract, steps, recur);
         pipelines.forEach((id, definition) ->
             validateV3Contracts(typeModel, definition.inputContract(), definition.outputContract(), definition.steps(),
                 definition.recur()));
@@ -313,7 +315,7 @@ public class PipelineTemplateConfigLoader {
         }
         return new PipelineTemplateConfig(version, appName, basePackage, transport, platform, Map.of(), Map.of(), sources,
             publish, steps, aspects, input, output, materialization, inputContract, outputContract,
-            typeModel, pipelines, httpPayloads);
+            typeModel, pipelines, httpPayloads, recur);
     }
 
     private Map<String, PipelineHttpPayloadBoundaryConfig> readHttpPayloads(
@@ -453,15 +455,7 @@ public class PipelineTemplateConfigLoader {
                 throw new IllegalStateException("Pipeline definition '" + id
                     + "' contains deferred completion; nested pipeline definitions do not support await: yet.");
             }
-            List<String> recur = List.of();
-            if (definition.containsKey("recur")) {
-                if (!(definition.get("recur") instanceof List<?> selected) || selected.isEmpty()
-                    || selected.stream().anyMatch(value -> !(value instanceof String type) || type.isBlank())) {
-                    throw new IllegalStateException("Pipeline definition '" + id
-                        + "' recur must be a non-empty list of concrete canonical input types.");
-                }
-                recur = ((List<?>) definition.get("recur")).stream().map(value -> ((String) value).trim()).toList();
-            }
+            List<String> recur = readRecur(definition, id);
             if (parsed.putIfAbsent(normalizedId, new PipelineTemplateDefinition(input, output, steps, recur)) != null) {
                 throw new IllegalStateException("Duplicate pipeline definition ID '" + id + "'.");
             }
@@ -485,6 +479,18 @@ public class PipelineTemplateConfigLoader {
             throw new IllegalStateException("Pipeline definition '" + id + "' requires a non-blank " + key + " contract.");
         }
         return contract.trim();
+    }
+
+    private List<String> readRecur(Map<?, ?> definition, String id) {
+        if (!definition.containsKey("recur")) {
+            return List.of();
+        }
+        if (!(definition.get("recur") instanceof List<?> selected) || selected.isEmpty()
+            || selected.stream().anyMatch(value -> !(value instanceof String type) || type.isBlank())) {
+            throw new IllegalStateException("Pipeline definition '" + id
+                + "' recur must be a non-empty list of concrete canonical input types.");
+        }
+        return ((List<?>) definition.get("recur")).stream().map(value -> ((String) value).trim()).toList();
     }
 
     private boolean containsAwait(Object rawSteps) {
@@ -1005,6 +1011,9 @@ public class PipelineTemplateConfigLoader {
         List<PipelineTemplateStep> steps,
         List<String> recur
     ) {
+        if (!recur.isEmpty() && (inputContract == null || outputContract == null)) {
+            throw new IllegalStateException("Definition recurrence requires explicit input and output contracts");
+        }
         if (inputContract != null && !typeModel.contains(inputContract)) {
             throw new IllegalStateException("Pipeline contract references unknown type '" + inputContract + "'.");
         }
