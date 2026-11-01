@@ -75,8 +75,7 @@ class PipelineTemplateConfigLoaderTest {
                 Path rootRecurrence = tempDir.resolve("root-recurrence.yaml");
                 Files.writeString(rootRecurrence, Files.readString(file)
                     .replace("contract: {", "recur: [TurnState]\ncontract: {"));
-                assertTrue(assertThrows(IllegalStateException.class,
-                    () -> new PipelineTemplateConfigLoader().load(rootRecurrence)).getMessage().contains("not the root"));
+                assertEquals(List.of("TurnState"), new PipelineTemplateConfigLoader().load(rootRecurrence).recur());
                 String yaml = Files.readString(file);
                 for (String step : List.of("Decide next turn", "Run agent")) {
                     String indent = step.equals("Decide next turn") ? "        " : "    ";

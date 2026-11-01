@@ -45,8 +45,58 @@ public record AwaitCreateCommand(
     Map<String, Object> transportMetadata,
     long nowEpochMs,
     long deadlineEpochMs,
-    long ttlEpochS
+    long ttlEpochS,
+    java.util.Optional<org.pipelineframework.invocation.PipelineInvocationPath> invocationPath
 ) {
+    /** Compatibility constructor for interactions without retained invocation context. */
+    public AwaitCreateCommand(
+    String tenantId,
+    String executionId,
+    String stepId,
+    int stepIndex,
+    String outputType,
+    String transportOutputType,
+    String causationId,
+    String idempotencyKey,
+    String correlationId,
+    Object requestPayload,
+    String assignee,
+    String group,
+    String transportType,
+    String unitId,
+    Integer itemIndex,
+    Map<String, Object> transportMetadata,
+    long nowEpochMs,
+    long deadlineEpochMs,
+    long ttlEpochS
+    ) {
+        this(
+            tenantId,
+            executionId,
+            stepId,
+            stepIndex,
+            outputType,
+            transportOutputType,
+            causationId,
+            idempotencyKey,
+            correlationId,
+            requestPayload,
+            assignee,
+            group,
+            transportType,
+            unitId,
+            itemIndex,
+            transportMetadata,
+            nowEpochMs,
+            deadlineEpochMs,
+            ttlEpochS,
+            java.util.Optional.empty());
+    }
+
+    public AwaitCreateCommand withInvocationPath(java.util.Optional<org.pipelineframework.invocation.PipelineInvocationPath> context) {
+        return new AwaitCreateCommand(tenantId, executionId, stepId, stepIndex, outputType, transportOutputType, causationId, idempotencyKey, correlationId, requestPayload, assignee, group, transportType, unitId, itemIndex, transportMetadata, nowEpochMs, deadlineEpochMs, ttlEpochS, context);
+    }
+
     /** Compatibility constructor for callers that do not supply durable transport metadata. */
     public AwaitCreateCommand(
         String tenantId,
@@ -154,6 +204,7 @@ public record AwaitCreateCommand(
     }
 
     public AwaitCreateCommand {
+        invocationPath = invocationPath == null ? java.util.Optional.empty() : invocationPath;
         if (tenantId == null || tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must not be blank");
         }
