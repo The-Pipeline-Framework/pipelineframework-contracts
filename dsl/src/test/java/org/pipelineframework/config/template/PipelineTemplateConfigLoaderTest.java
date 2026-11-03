@@ -29,120 +29,80 @@ class PipelineTemplateConfigLoaderTest {
     Path tempDir;
 
     @Test
-    void loadsDefinitionOwnedRecurrenceAndRejectsInvalidContinuingOutcomes() throws Exception {
-        for (String recur : List.of("[TurnState]", "[]", "[Review]", "[TurnState, TurnState]", "TurnState",
-            "[TurnAlias]", "[TurnState, TurnAlias]")) {
-            Path file = tempDir.resolve("recurrence.yaml");
-            Files.writeString(file, """
-                version: 3
-                appName: Recurrent agent
-                basePackage: com.example
-                transport: LOCAL
-                contract: { input: TurnState, output: AgentEnd }
-                types:
-                  TurnState: { fields: [[turn, int32]] }
-                  TurnAlias: { alias: TurnState }
-                  Review: { fields: [[prompt, string]] }
-                  Result: { fields: [[message, string]] }
-                  Unexpected: { fields: [[message, string]] }
-                  TurnOutcome: { variants: { again: TurnState, review: Review, finished: Result } }
-                  InvalidOutcome: { variants: { again: TurnState, review: Review, unexpected: Unexpected } }
-                  NestedOutcome: { variants: { nested: TurnOutcome } }
-                  NestedInvalidOutcome: { variants: { nested: InvalidOutcome } }
-                  AgentEnd: { variants: { review: Review, finished: Result } }
-                pipelines:
-                  agent:
-                    input: TurnState
-                    output: AgentEnd
-                    recur: %s
-                    steps:
-                      - name: Decide next turn
-                        service: com.example.Advance
-                        cardinality: ONE_TO_ONE
-                        input: TurnState
-                        output: TurnOutcome
+    void resolvesSelfLexicallyAndKeepsNamedReferences() throws Exception {
+        String yaml = """
+            version: 3
+            appName: Explicit recursion
+            basePackage: com.example
+            transport: LOCAL
+            contract: { input: State, output: Result }
+            types:
+              State: { fields: [[turn, int32]] }
+              Result: { fields: [[message, string]] }
+              Outcome: { variants: { again: State, done: Result } }
+            pipelines:
+              agent:
+                input: State
+                output: Result
                 steps:
-                  - name: Run agent
-                    pipeline: agent
-                    cardinality: ONE_TO_ONE
-                    input: TurnState
-                    output: AgentEnd
-                """.formatted(recur));
-            if (recur.equals("[TurnState]")) {
-                var definition = new PipelineTemplateConfigLoader().load(file).pipelines().get("agent");
-                assertEquals(List.of("TurnState"), definition.recur());
-                assertEquals(1, definition.steps().size(), "The DSL preserves authored steps before compiler lowering");
-                Path rootRecurrence = tempDir.resolve("root-recurrence.yaml");
-                Files.writeString(rootRecurrence, Files.readString(file)
-                    .replace("contract: {", "recur: [TurnState]\ncontract: {"));
-                assertEquals(List.of("TurnState"), new PipelineTemplateConfigLoader().load(rootRecurrence).recur());
-                String yaml = Files.readString(file);
-                for (String step : List.of("Decide next turn", "Run agent")) {
-                    String indent = step.equals("Decide next turn") ? "        " : "    ";
-                    Files.writeString(file, yaml.replace("name: " + step,
-                        "name: " + step + "\n" + indent + "recur: [TurnState]"));
-                    var error = assertThrows(IllegalStateException.class,
-                        () -> new PipelineTemplateConfigLoader().load(file));
-                    assertTrue(error.getMessage().contains("Step '" + step + "'"), error.getMessage());
-                    assertTrue(error.getMessage().contains("pipeline definition"), error.getMessage());
-                }
-                for (String output : List.of("TurnState", "Result", "Unexpected", "InvalidOutcome",
-                    "NestedOutcome", "NestedInvalidOutcome")) {
-                    Files.writeString(file, yaml.replace("output: TurnOutcome", "output: " + output));
-                    if (List.of("TurnState", "Result", "NestedOutcome").contains(output)) {
-                        assertDoesNotThrow(() -> new PipelineTemplateConfigLoader().load(file));
-                    } else {
-                        var error = assertThrows(IllegalStateException.class,
-                            () -> new PipelineTemplateConfigLoader().load(file));
-                        assertTrue(error.getMessage().contains("Final step 'Decide next turn' output '" + output + "'"),
-                            error.getMessage());
-                    }
-                }
-                for (String nested : List.of("TurnOutcome", "OutcomeAlias")) {
-                    String overlapping = yaml.replace("AgentEnd: { variants: { review: Review, finished: Result } }",
-                        "OutcomeAlias: { alias: TurnOutcome }\n  AgentEnd: { variants: { nested: " + nested + " } }");
-                    Files.writeString(file, overlapping);
-                    var error = assertThrows(IllegalStateException.class,
-                        () -> new PipelineTemplateConfigLoader().load(file));
-                    assertTrue(error.getMessage().contains("must not also be a definition output alternative"),
-                        error.getMessage());
-                }
-            } else {
-                var error = assertThrows(RuntimeException.class, () -> new PipelineTemplateConfigLoader().load(file), recur);
-                if (recur.contains("TurnAlias")) {
-                    assertTrue(error.getMessage().contains("must be a concrete canonical type"), error.getMessage());
-                }
-            }
+                  - { name: Decide, cardinality: ONE_TO_ONE, input: State, output: Outcome }
+                  - { name: Continue, pipeline: self, cardinality: ONE_TO_ONE, input: Outcome, accepts: [State], output: Result }
+            steps:
+              - { name: Decide root, cardinality: ONE_TO_ONE, input: State, output: Outcome }
+              - { name: Continue root, pipeline: self, cardinality: ONE_TO_ONE, input: Outcome, accepts: [State], output: Result }
+            """;
+        var config = new PipelineTemplateConfigLoader().load(write("self.yaml", yaml));
+        assertEquals("$root", config.steps().getLast().pipelineReference().orElseThrow());
+        assertEquals("agent", config.pipelines().get("agent").steps().getLast().pipelineReference().orElseThrow());
+        var named = new PipelineTemplateConfigLoader().load(write("named.yaml", yaml.replace("pipeline: self", "pipeline: agent")));
+        assertEquals("agent", named.steps().getLast().pipelineReference().orElseThrow());
+        assertEquals(config.pipelines().get("agent"), named.pipelines().get("agent"));
+        var reserved = assertThrows(IllegalStateException.class, () -> new PipelineTemplateConfigLoader()
+            .load(write("reserved.yaml", yaml.replace("  agent:", "  self:"))));
+        assertTrue(reserved.getMessage().contains("reserved"));
+        var internal = assertThrows(IllegalStateException.class, () -> new PipelineTemplateConfigLoader()
+            .load(write("internal.yaml", yaml.replace("pipeline: self", "pipeline: $root"))));
+        assertTrue(internal.getMessage().contains("pipeline: self"));
+        for (String invalid : List.of(
+            yaml.replace("contract: {", "recur: [State]\ncontract: {"),
+            yaml.replace("    input: State", "    recur: [State]\n    input: State"),
+            yaml.replace("name: Continue,", "name: Continue, recur: [State],"))) {
+            var failure = assertThrows(IllegalStateException.class, () -> new PipelineTemplateConfigLoader()
+                .load(write("removed-recur.yaml", invalid)));
+            assertTrue(failure.getMessage().contains("pipeline: self"), failure.getMessage());
         }
     }
 
     @Test
-    void preservesTwoDistinctRecurrentTypesInAuthoredOrder() throws Exception {
-        Path file = tempDir.resolve("multiple-recurrent-types.yaml");
-        Files.writeString(file, """
+    void loadsAwaitInsideNestedDefinition() throws Exception {
+        var config = new PipelineTemplateConfigLoader().load(write("nested-await.yaml", """
             version: 3
-            appName: Multiple continuing outcomes
+            appName: Nested Await
             basePackage: com.example
             transport: LOCAL
-            contract: { input: AgentInput, output: Result }
+            contract: { input: State, output: Answer }
             types:
-              TurnState: { fields: [[turn, int32]] }
-              RetryState: { fields: [[attempt, int32]] }
-              Result: { fields: [[message, string]] }
-              AgentInput: { variants: { turn: TurnState, retry: RetryState } }
-              TurnOutcome: { variants: { turn: TurnState, retry: RetryState, done: Result } }
+              State: { fields: [[turn, int32]] }
+              Review: { fields: [[prompt, string]] }
+              Answer: { fields: [[text, string]] }
             pipelines:
               agent:
-                input: AgentInput
-                output: Result
-                recur: [RetryState, TurnState]
+                input: State
+                output: Answer
                 steps:
-                  - { name: Advance, service: com.example.Advance, cardinality: ONE_TO_ONE, input: AgentInput, output: TurnOutcome }
+                  - name: Request review
+                    cardinality: ONE_TO_ONE
+                    input: State
+                    output: Answer
+                    await:
+                      operationOutput: { type: Review }
+                      timeout: PT15M
+                      transport: { type: interaction-api }
             steps:
-              - { name: Run agent, pipeline: agent, cardinality: ONE_TO_ONE, input: AgentInput, output: Result }
-            """);
-        var definition = new PipelineTemplateConfigLoader().load(file).pipelines().get("agent");
-        assertEquals(List.of("RetryState", "TurnState"), definition.recur());
+              - { name: Invoke, pipeline: agent, cardinality: ONE_TO_ONE, input: State, output: Answer }
+            """));
+        assertEquals("Review", config.pipelines().get("agent").steps().getFirst()
+            .deferredOperationOutputTypeName().orElseThrow());
     }
 
     @Test
@@ -3094,23 +3054,28 @@ class PipelineTemplateConfigLoaderTest {
             "Canonical Java type 'org.example.block.DocumentBoundary' cannot be bound to both"));
     }
     @Test
-    void normalizesContributedRootRecurrenceBeforeValidatingOutcomes() throws Exception {
-        var config = loader(protocolObservation()).load(write("contributed-root-recur.yaml", """
+    void normalizesContributedContractsOnExplicitSelfCall() throws Exception {
+        var config = loader(protocolObservation()).load(write("contributed-self.yaml", """
             version: 3
-            appName: Contributed recurrence
+            appName: Contributed self call
             basePackage: com.example.protocol
             transport: LOCAL
             types:
               Marker: { fields: [[value, string]] }
             contract: { input: <tpf.test.ProtocolObservation>, output: Marker }
-            recur: [<tpf.test.ProtocolObservation>]
             steps:
               - name: Observe
                 cardinality: ONE_TO_ONE
                 input: <tpf.test.ProtocolObservation>
                 output: <tpf.test.ProtocolObservation>
+              - name: Continue
+                pipeline: self
+                cardinality: ONE_TO_ONE
+                input: <tpf.test.ProtocolObservation>
+                output: Marker
             """));
-        assertEquals(List.of("ProtocolObservation"), config.recur());
+        assertEquals("ProtocolObservation", config.steps().getLast().inputTypeName());
+        assertEquals("$root", config.steps().getLast().pipelineReference().orElseThrow());
     }
 
 }
