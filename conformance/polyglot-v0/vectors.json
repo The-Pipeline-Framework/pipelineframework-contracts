@@ -1,0 +1,845 @@
+{
+  "schemaVersion": 1,
+  "profile": "tpf-polyglot-probe/0",
+  "status": "candidate-handcrafted-non-production",
+  "presence": [
+    {
+      "id": "00-absent",
+      "json": "{}",
+      "optional": false,
+      "nullable": false,
+      "state": "ABSENT",
+      "diagnostic": "MISSING_REQUIRED"
+    },
+    {
+      "id": "00-null",
+      "json": "{\"value\":null}",
+      "optional": false,
+      "nullable": false,
+      "state": "NULL",
+      "diagnostic": "NULL_FORBIDDEN"
+    },
+    {
+      "id": "00-false",
+      "json": "{\"value\":false}",
+      "optional": false,
+      "nullable": false,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "00-zero",
+      "json": "{\"value\":0}",
+      "optional": false,
+      "nullable": false,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "00-empty",
+      "json": "{\"value\":[]}",
+      "optional": false,
+      "nullable": false,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "00-nested",
+      "json": "{\"value\":{\"items\":[false,0,[],{\"label\":\"café 🌍\"}]}}",
+      "optional": false,
+      "nullable": false,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "01-absent",
+      "json": "{}",
+      "optional": false,
+      "nullable": true,
+      "state": "ABSENT",
+      "diagnostic": "MISSING_REQUIRED"
+    },
+    {
+      "id": "01-null",
+      "json": "{\"value\":null}",
+      "optional": false,
+      "nullable": true,
+      "state": "NULL",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "01-false",
+      "json": "{\"value\":false}",
+      "optional": false,
+      "nullable": true,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "01-zero",
+      "json": "{\"value\":0}",
+      "optional": false,
+      "nullable": true,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "01-empty",
+      "json": "{\"value\":[]}",
+      "optional": false,
+      "nullable": true,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "01-nested",
+      "json": "{\"value\":{\"items\":[false,0,[],{\"label\":\"café 🌍\"}]}}",
+      "optional": false,
+      "nullable": true,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "10-absent",
+      "json": "{}",
+      "optional": true,
+      "nullable": false,
+      "state": "ABSENT",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "10-null",
+      "json": "{\"value\":null}",
+      "optional": true,
+      "nullable": false,
+      "state": "NULL",
+      "diagnostic": "NULL_FORBIDDEN"
+    },
+    {
+      "id": "10-false",
+      "json": "{\"value\":false}",
+      "optional": true,
+      "nullable": false,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "10-zero",
+      "json": "{\"value\":0}",
+      "optional": true,
+      "nullable": false,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "10-empty",
+      "json": "{\"value\":[]}",
+      "optional": true,
+      "nullable": false,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "10-nested",
+      "json": "{\"value\":{\"items\":[false,0,[],{\"label\":\"café 🌍\"}]}}",
+      "optional": true,
+      "nullable": false,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "11-absent",
+      "json": "{}",
+      "optional": true,
+      "nullable": true,
+      "state": "ABSENT",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "11-null",
+      "json": "{\"value\":null}",
+      "optional": true,
+      "nullable": true,
+      "state": "NULL",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "11-false",
+      "json": "{\"value\":false}",
+      "optional": true,
+      "nullable": true,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "11-zero",
+      "json": "{\"value\":0}",
+      "optional": true,
+      "nullable": true,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "11-empty",
+      "json": "{\"value\":[]}",
+      "optional": true,
+      "nullable": true,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "11-nested",
+      "json": "{\"value\":{\"items\":[false,0,[],{\"label\":\"café 🌍\"}]}}",
+      "optional": true,
+      "nullable": true,
+      "state": "VALUE",
+      "diagnostic": "OK"
+    }
+  ],
+  "numbers": [
+    {
+      "id": "safe",
+      "kind": "json-safe-integer",
+      "lexeme": "9007199254740991",
+      "exact": "9007199254740991",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "unsafe-raw",
+      "kind": "json-safe-integer",
+      "lexeme": "9007199254740993",
+      "exact": "9007199254740993",
+      "diagnostic": "UNSAFE_NUMBER"
+    },
+    {
+      "id": "large-candidate",
+      "kind": "candidate-integer-string",
+      "lexeme": "9007199254740993",
+      "exact": "9007199254740993",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "negative-large",
+      "kind": "candidate-integer-string",
+      "lexeme": "-9223372036854775808",
+      "exact": "-9223372036854775808",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "decimal-candidate",
+      "kind": "candidate-decimal-string",
+      "lexeme": "1234567890.12345678901234567890",
+      "exact": "1234567890.12345678901234567890",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "unknown-number",
+      "kind": "float128",
+      "lexeme": "1",
+      "exact": "1",
+      "diagnostic": "UNKNOWN_NUMBER_KIND"
+    },
+    {
+      "id": "negative-zero",
+      "kind": "json-safe-integer",
+      "lexeme": "-0",
+      "exact": "",
+      "diagnostic": "UNSUPPORTED_NUMBER"
+    },
+    {
+      "id": "nonfinite",
+      "kind": "json-safe-integer",
+      "lexeme": "NaN",
+      "exact": "",
+      "diagnostic": "UNSUPPORTED_NUMBER"
+    },
+    {
+      "id": "infinity",
+      "kind": "json-safe-integer",
+      "lexeme": "Infinity",
+      "exact": "",
+      "diagnostic": "UNSUPPORTED_NUMBER"
+    },
+    {
+      "id": "raw-decimal",
+      "kind": "json-safe-integer",
+      "lexeme": "0.1",
+      "exact": "",
+      "diagnostic": "UNSUPPORTED_NUMBER"
+    },
+    {
+      "id": "integer-leading-zero",
+      "kind": "candidate-integer-string",
+      "lexeme": "01",
+      "exact": "",
+      "diagnostic": "INVALID_NUMBER_LEXEME"
+    },
+    {
+      "id": "decimal-nan",
+      "kind": "candidate-decimal-string",
+      "lexeme": "NaN",
+      "exact": "",
+      "diagnostic": "INVALID_NUMBER_LEXEME"
+    },
+    {
+      "id": "decimal-exponent",
+      "kind": "candidate-decimal-string",
+      "lexeme": "1e3",
+      "exact": "",
+      "diagnostic": "INVALID_NUMBER_LEXEME"
+    },
+    {
+      "id": "decimal-negative-zero",
+      "kind": "candidate-decimal-string",
+      "lexeme": "-0.00",
+      "exact": "",
+      "diagnostic": "INVALID_NUMBER_LEXEME"
+    }
+  ],
+  "unions": [
+    {
+      "tag": "count",
+      "value": 0,
+      "diagnostic": "OK"
+    },
+    {
+      "tag": "label",
+      "value": "café 🌍",
+      "diagnostic": "OK"
+    },
+    {
+      "tag": "java.lang.Runtime",
+      "value": "bad",
+      "diagnostic": "UNKNOWN_VARIANT"
+    },
+    {
+      "tag": "count",
+      "value": "zero",
+      "diagnostic": "INVALID_VARIANT_VALUE"
+    },
+    {
+      "tag": "label",
+      "value": 0,
+      "diagnostic": "INVALID_VARIANT_VALUE"
+    },
+    {
+      "tag": "count",
+      "value": 9007199254740992,
+      "diagnostic": "INVALID_VARIANT_VALUE"
+    }
+  ],
+  "bytes": [
+    {
+      "id": "existing",
+      "base64": "eyJvdXRjb21lIjoiQ09NUExFVEVEIn0=",
+      "sha256": "2f0c1d203ce98d534a187a14461fd2fa01e975159cb35f5b7fb5b2cb74a8abca"
+    },
+    {
+      "id": "unicode",
+      "base64": "eyJsYWJlbCI6ImNhZsOpIPCfjI0ifQ==",
+      "sha256": "53474663b3cd2e3f52eebb2416c864e8eeca9bfbcc645d8409de667de9f1138b"
+    },
+    {
+      "id": "whitespace",
+      "base64": "eyAib3V0Y29tZSI6ICJDT01QTEVURUQiIH0=",
+      "sha256": "7fb499adf2dc284653d8b95af0fb577b1cf21d24f857490bc5ba1d20e5f1bc9c"
+    }
+  ],
+  "signature": {
+    "secret": "worker-secret",
+    "method": "POST",
+    "path": "/pipeline/worker/transitions/execute",
+    "timestamp": "2026-09-14T10:15:30Z",
+    "nonce": "nonce-1",
+    "bodyBase64": "eyJvdXRjb21lIjoiQ09NUExFVEVEIn0=",
+    "bodySha256": "2f0c1d203ce98d534a187a14461fd2fa01e975159cb35f5b7fb5b2cb74a8abca",
+    "preimage": "POST\n/pipeline/worker/transitions/execute\n2026-09-14T10:15:30Z\nnonce-1\n2f0c1d203ce98d534a187a14461fd2fa01e975159cb35f5b7fb5b2cb74a8abca",
+    "hmac": "e22366b38e2b071ccc7e31df9d7c4f7ad13d0b6ac17d2ef0b0f43e89cfb53523"
+  },
+  "pins": {
+    "pipelineId": "probe-pipeline",
+    "contractId": "contract-sha256:01",
+    "releaseId": "release-01",
+    "artifactId": "artifact-01",
+    "artifactDigest": "sha256:02"
+  },
+  "authMutations": [
+    {
+      "field": "method",
+      "value": "tampered",
+      "diagnostic": "BAD_SIGNATURE"
+    },
+    {
+      "field": "path",
+      "value": "tampered",
+      "diagnostic": "BAD_SIGNATURE"
+    },
+    {
+      "field": "timestamp",
+      "value": "tampered",
+      "diagnostic": "BAD_SIGNATURE"
+    },
+    {
+      "field": "nonce",
+      "value": "tampered",
+      "diagnostic": "BAD_SIGNATURE"
+    },
+    {
+      "field": "bodyBase64",
+      "value": "tampered",
+      "diagnostic": "BAD_SIGNATURE"
+    },
+    {
+      "field": "pipelineId",
+      "value": "different",
+      "diagnostic": "IDENTITY_MISMATCH"
+    },
+    {
+      "field": "contractId",
+      "value": "different",
+      "diagnostic": "IDENTITY_MISMATCH"
+    },
+    {
+      "field": "releaseId",
+      "value": "different",
+      "diagnostic": "IDENTITY_MISMATCH"
+    },
+    {
+      "field": "artifactId",
+      "value": "different",
+      "diagnostic": "IDENTITY_MISMATCH"
+    },
+    {
+      "field": "artifactDigest",
+      "value": "different",
+      "diagnostic": "IDENTITY_MISMATCH"
+    }
+  ],
+  "admission": [
+    {
+      "id": "supported",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "pure-unary"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "OK",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "profile",
+      "profile": "tpf-polyglot-probe/99",
+      "capabilities": [
+        "pure-unary"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNKNOWN_PROFILE",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "payload",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "pure-unary"
+      ],
+      "payloadType": "java.lang.Runtime",
+      "diagnostic": "UNKNOWN_PAYLOAD_TYPE",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "streaming",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "streaming"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "await",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "await"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "query",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "query"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "command",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "command"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "cache",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "cache"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "persistence",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "persistence"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "PipelineInvocationPath",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "PipelineInvocationPath"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "AwaitOccurrencePath",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "AwaitOccurrencePath"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "queue-async",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "queue-async"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "missing-capability",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNSUPPORTED_CAPABILITY",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "unknown-schema",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "pure-unary"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "UNKNOWN_SCHEMA",
+      "schemaVersion": 99,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": 2
+    },
+    {
+      "id": "owner-conflict",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "pure-unary"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "POLICY_CONFLICT",
+      "schemaVersion": 1,
+      "retryOwner": "caller-and-callee",
+      "retryLimit": 2
+    },
+    {
+      "id": "missing-policy",
+      "profile": "tpf-polyglot-probe/0",
+      "capabilities": [
+        "pure-unary"
+      ],
+      "payloadType": "probe.Value/1",
+      "diagnostic": "POLICY_CONFLICT",
+      "schemaVersion": 1,
+      "retryOwner": "local-invocation-shell",
+      "retryLimit": null
+    }
+  ],
+  "executions": [
+    {
+      "id": "success",
+      "evidence": "local-async-probe",
+      "input": 3,
+      "failuresBeforeSuccess": 0,
+      "terminal": false,
+      "cancelBeforeB": false,
+      "retryLimit": 2,
+      "retryOwner": "local-invocation-shell",
+      "deliveries": 1,
+      "expected": {
+        "aAttempts": 1,
+        "bAttempts": 1,
+        "callerAttempts": 1,
+        "outcome": "COMPLETED",
+        "result": 8
+      }
+    },
+    {
+      "id": "retry",
+      "evidence": "local-async-probe",
+      "input": 3,
+      "failuresBeforeSuccess": 2,
+      "terminal": false,
+      "cancelBeforeB": false,
+      "retryLimit": 2,
+      "retryOwner": "local-invocation-shell",
+      "deliveries": 1,
+      "expected": {
+        "aAttempts": 3,
+        "bAttempts": 1,
+        "callerAttempts": 1,
+        "outcome": "COMPLETED",
+        "result": 8
+      }
+    },
+    {
+      "id": "exhaust",
+      "evidence": "local-async-probe",
+      "input": 3,
+      "failuresBeforeSuccess": 3,
+      "terminal": false,
+      "cancelBeforeB": false,
+      "retryLimit": 2,
+      "retryOwner": "local-invocation-shell",
+      "deliveries": 1,
+      "expected": {
+        "aAttempts": 3,
+        "bAttempts": 0,
+        "callerAttempts": 1,
+        "outcome": "RETRY_EXHAUSTED",
+        "result": 0
+      }
+    },
+    {
+      "id": "terminal",
+      "evidence": "local-async-probe",
+      "input": 3,
+      "failuresBeforeSuccess": 0,
+      "terminal": true,
+      "cancelBeforeB": false,
+      "retryLimit": 2,
+      "retryOwner": "local-invocation-shell",
+      "deliveries": 1,
+      "expected": {
+        "aAttempts": 1,
+        "bAttempts": 0,
+        "callerAttempts": 1,
+        "outcome": "BUSINESS_REJECTION",
+        "result": 0
+      }
+    },
+    {
+      "id": "cancel",
+      "evidence": "local-async-probe",
+      "input": 3,
+      "failuresBeforeSuccess": 0,
+      "terminal": false,
+      "cancelBeforeB": true,
+      "retryLimit": 2,
+      "retryOwner": "local-invocation-shell",
+      "deliveries": 1,
+      "expected": {
+        "aAttempts": 1,
+        "bAttempts": 0,
+        "callerAttempts": 1,
+        "outcome": "CANCELLED",
+        "result": 0
+      }
+    },
+    {
+      "id": "remote-policy-history",
+      "evidence": "policy-simulation-only",
+      "input": 3,
+      "failuresBeforeSuccess": 2,
+      "terminal": false,
+      "cancelBeforeB": false,
+      "retryLimit": 2,
+      "retryOwner": "callee-invocation-shell",
+      "deliveries": 1,
+      "expected": {
+        "aAttempts": 3,
+        "bAttempts": 1,
+        "callerAttempts": 1,
+        "outcome": "COMPLETED",
+        "result": 8
+      }
+    },
+    {
+      "id": "redelivery-history",
+      "evidence": "policy-simulation-only",
+      "input": 3,
+      "failuresBeforeSuccess": 3,
+      "terminal": false,
+      "cancelBeforeB": false,
+      "retryLimit": 2,
+      "retryOwner": "coordinator-per-delivery",
+      "deliveries": 2,
+      "expected": {
+        "aAttempts": 6,
+        "bAttempts": 0,
+        "callerAttempts": 2,
+        "outcome": "RETRY_EXHAUSTED",
+        "result": 0
+      }
+    },
+    {
+      "id": "late-result-cancel",
+      "evidence": "local-async-probe",
+      "input": 3,
+      "failuresBeforeSuccess": 0,
+      "terminal": false,
+      "cancelBeforeB": false,
+      "retryLimit": 2,
+      "retryOwner": "local-invocation-shell",
+      "deliveries": 1,
+      "expected": {
+        "aAttempts": 1,
+        "bAttempts": 0,
+        "callerAttempts": 1,
+        "outcome": "CANCELLED",
+        "result": 0
+      },
+      "cancelDuringA": true
+    }
+  ],
+  "contexts": [
+    {
+      "executionId": "run-a",
+      "traceId": "trace-a",
+      "input": 3,
+      "expected": 8,
+      "expectedExecutionId": "run-a",
+      "expectedTraceId": "trace-a"
+    },
+    {
+      "executionId": "run-b",
+      "traceId": "trace-b",
+      "input": 9,
+      "expected": 20,
+      "expectedExecutionId": "run-b",
+      "expectedTraceId": "trace-b"
+    }
+  ],
+  "forbiddenContextKeys": [
+    "providerCredentials",
+    "connectionSecret",
+    "coordinatorStore",
+    "tenantPolicy",
+    "retryOwner"
+  ],
+  "failureShape": {
+    "code": "BUSINESS_REJECTION",
+    "message": "input rejected",
+    "retryable": false,
+    "owner": "local-invocation-shell",
+    "stepId": "A"
+  },
+  "failures": [
+    {
+      "id": "valid",
+      "envelope": {
+        "code": "BUSINESS_REJECTION",
+        "message": "input rejected",
+        "retryable": false,
+        "owner": "local-invocation-shell",
+        "stepId": "A"
+      },
+      "diagnostic": "OK"
+    },
+    {
+      "id": "unknown",
+      "envelope": {
+        "code": "java.lang.Exception",
+        "message": "input rejected",
+        "retryable": false,
+        "owner": "local-invocation-shell",
+        "stepId": "A"
+      },
+      "diagnostic": "UNKNOWN_FAILURE"
+    },
+    {
+      "id": "retry-conflict",
+      "envelope": {
+        "code": "BUSINESS_REJECTION",
+        "message": "input rejected",
+        "retryable": true,
+        "owner": "local-invocation-shell",
+        "stepId": "A"
+      },
+      "diagnostic": "FAILURE_POLICY_CONFLICT"
+    },
+    {
+      "id": "owner",
+      "envelope": {
+        "code": "BUSINESS_REJECTION",
+        "message": "input rejected",
+        "retryable": false,
+        "owner": "provider",
+        "stepId": "A"
+      },
+      "diagnostic": "FAILURE_POLICY_CONFLICT"
+    },
+    {
+      "id": "missing-step",
+      "envelope": {
+        "code": "BUSINESS_REJECTION",
+        "message": "input rejected",
+        "retryable": false,
+        "owner": "local-invocation-shell"
+      },
+      "diagnostic": "MALFORMED_FAILURE"
+    }
+  ]
+}
