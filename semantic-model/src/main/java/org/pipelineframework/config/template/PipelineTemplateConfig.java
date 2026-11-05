@@ -70,6 +70,7 @@ public record PipelineTemplateConfig(
     Map<String, PipelineTemplateDefinition> pipelines,
     Map<String, PipelineHttpPayloadBoundaryConfig> httpPayloads
 ) {
+
     public PipelineTemplateConfig {
         if (version <= 0) {
             throw new IllegalArgumentException("version must be > 0");

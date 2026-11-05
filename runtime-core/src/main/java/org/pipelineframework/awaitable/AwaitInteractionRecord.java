@@ -59,8 +59,74 @@ public record AwaitInteractionRecord(
     long ttlEpochS,
     String transportOutputType,
     Optional<Object> commandAcknowledgement,
-    Optional<Object> stagedCompletionPayload
+    Optional<Object> stagedCompletionPayload,
+    java.util.Optional<org.pipelineframework.invocation.PipelineInvocationPath> invocationPath
 ) {
+    /** Compatibility constructor for interactions without retained invocation context. */
+    public AwaitInteractionRecord(
+    String tenantId,
+    String executionId,
+    String stepId,
+    int stepIndex,
+    String outputType,
+    String interactionId,
+    String correlationId,
+    String causationId,
+    String idempotencyKey,
+    long version,
+    AwaitInteractionStatus status,
+    Object requestPayload,
+    Object responsePayload,
+    String unitId,
+    Integer itemIndex,
+    String actor,
+    String assignee,
+    String group,
+    String transportType,
+    Map<String, Object> transportMetadata,
+    long deadlineEpochMs,
+    long createdAtEpochMs,
+    long updatedAtEpochMs,
+    long ttlEpochS,
+    String transportOutputType,
+    Optional<Object> commandAcknowledgement,
+    Optional<Object> stagedCompletionPayload
+    ) {
+        this(
+            tenantId,
+            executionId,
+            stepId,
+            stepIndex,
+            outputType,
+            interactionId,
+            correlationId,
+            causationId,
+            idempotencyKey,
+            version,
+            status,
+            requestPayload,
+            responsePayload,
+            unitId,
+            itemIndex,
+            actor,
+            assignee,
+            group,
+            transportType,
+            transportMetadata,
+            deadlineEpochMs,
+            createdAtEpochMs,
+            updatedAtEpochMs,
+            ttlEpochS,
+            transportOutputType,
+            commandAcknowledgement,
+            stagedCompletionPayload,
+            java.util.Optional.empty());
+    }
+
+    public AwaitInteractionRecord withInvocationPath(java.util.Optional<org.pipelineframework.invocation.PipelineInvocationPath> context) {
+        return new AwaitInteractionRecord(tenantId, executionId, stepId, stepIndex, outputType, interactionId, correlationId, causationId, idempotencyKey, version, status, requestPayload, responsePayload, unitId, itemIndex, actor, assignee, group, transportType, transportMetadata, deadlineEpochMs, createdAtEpochMs, updatedAtEpochMs, ttlEpochS, transportOutputType, commandAcknowledgement, stagedCompletionPayload, context);
+    }
+
     /** Compatibility constructor for interactions created before acknowledgement-aware Command completion. */
     public AwaitInteractionRecord(
         String tenantId, String executionId, String stepId, int stepIndex, String outputType,
@@ -160,6 +226,7 @@ public record AwaitInteractionRecord(
     }
 
     public AwaitInteractionRecord {
+        invocationPath = invocationPath == null ? java.util.Optional.empty() : invocationPath;
         if (tenantId == null || tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must not be blank");
         }
@@ -236,6 +303,7 @@ public record AwaitInteractionRecord(
             || !Objects.equals(idempotencyKey, next.idempotencyKey)
             || !Objects.equals(requestPayload, next.requestPayload)
             || !Objects.equals(unitId, next.unitId)
+            || !Objects.equals(invocationPath, next.invocationPath)
             || !Objects.equals(itemIndex, next.itemIndex)
             || !Objects.equals(assignee, next.assignee)
             || !Objects.equals(group, next.group)
@@ -330,7 +398,7 @@ public record AwaitInteractionRecord(
         return new AwaitInteractionRecord(tenantId, executionId, stepId, stepIndex, outputType, interactionId,
             correlationId, causationId, idempotencyKey, version + 1, next, requestPayload, responsePayload,
             unitId, itemIndex, actor, assignee, group, transportType, metadata, deadlineEpochMs, createdAtEpochMs,
-            nowEpochMs, ttlEpochS, transportOutputType, commandAcknowledgement, stagedCompletionPayload);
+            nowEpochMs, ttlEpochS, transportOutputType, commandAcknowledgement, stagedCompletionPayload, invocationPath);
     }
 
     /**
@@ -341,6 +409,6 @@ public record AwaitInteractionRecord(
             tenantId, executionId, stepId, stepIndex, outputType, interactionId, correlationId, causationId,
             idempotencyKey, version, status, requestSnapshot, responseSnapshot, unitId, itemIndex, actor, assignee,
             group, transportType, transportMetadata, deadlineEpochMs, createdAtEpochMs, updatedAtEpochMs,
-            ttlEpochS, transportOutputType, commandAcknowledgement, stagedCompletionPayload);
+            ttlEpochS, transportOutputType, commandAcknowledgement, stagedCompletionPayload, invocationPath);
     }
 }

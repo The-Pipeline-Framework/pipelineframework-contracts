@@ -1343,4 +1343,29 @@ class PipelineYamlConfigLoaderTest {
         assertNotNull(step.queryCapture());
         assertTrue(step.queryCapture().keyFields().isEmpty());
     }
+    @Test
+    void preservesSelectedAwaitVariantsOnAnOrdinaryOperation() {
+        var config = new PipelineYamlConfigLoader().load(new StringReader("""
+            version: 3
+            basePackage: com.example
+            transport: LOCAL
+            platform: COMPUTE
+            steps:
+              - name: Apply policy
+                service: com.example.ApplyPolicy
+                cardinality: ONE_TO_ONE
+                input: Input
+                output: CompletedOutcome
+                await:
+                  operationOutput: { type: PendingOutcome }
+                  accepts: [Review]
+                  output: AnsweredReview
+                  timeout: PT10M
+                  correlation: { strategy: interactionId }
+                  transport: { type: interaction-api }
+            """));
+        assertEquals(List.of("Review"), config.steps().getFirst().awaitConfig().accepts());
+        assertEquals(Optional.of("AnsweredReview"), config.steps().getFirst().awaitConfig().output());
+    }
+
 }
