@@ -38,7 +38,7 @@ or a general mutation-score claim.
 Contracts baseline: `acf6bd2db310462d526695ec65a5479b2c7f134f`.
 Runtime evidence refresh: `60dce3e400f51656631230ab9fe910ecb9a6c972` (read-only; no runtime changes).
 Root documentation baseline: `c7d4fe20c439f698e3be24cd3d56c0cf5b5f5702`.
-Corpus SHA-256: `a724fbca642b809114a59b161efdefaf5c9a383f5c3d1656b58ff778974a461a`.
+Corpus SHA-256: `31d727ca1abcea09811da7222de6b78a966b91d9d8decbcc052d4c6c6b384a44`.
 
 Run the exact candidate commit containing this report. The runner prints the consumer results;
 the PR records its tested head. No Maven dependency, production source, published coordinate
@@ -59,7 +59,7 @@ Java reference check is separate from the eventual no-local-JVM native developer
 ## Results and review
 
 - Full canonical Maven `verify`: passed all ten modules on 6 November 2026 (23.429 seconds).
-- Combined consumer run: passed in Java, Node and Python (177, 170 and 170 checks respectively).
+- Combined consumer run: passed in Java, Node and Python (184, 177 and 177 checks respectively).
   All nine deliberately corrupted null/precision/retry-oracle runs failed as required.
   These counts describe the executed harness, not a coverage or parity score.
 - Environment: OpenJDK 25.0.4.1, Node 26.8.2, Python 3.14.6 on macOS. CI records its own versions;
@@ -72,6 +72,9 @@ identified self-referential context expectations and simulated Java failure bran
 were treated as acceptance blockers in the harness, not as production TPF defects.
 Final cross-language falsification found a raw union-integer precision mismatch: Java/Python
 accepted a value outside Node's safe range. All three now reject it through a shared vector.
+The same review also exposed Python's exponent formatting for small fixed-point decimals.
+Fixed-point scale is now retained, and common ASCII/full-string numeric grammar is checked
+against non-ASCII digits and a trailing newline instead of relying on host regex defaults.
 Independent final adequacy/source review: **READY for the bounded contract-proposal/probe PR**.
 The reviewer reproduced the three consumer results and nine mutation rejections against the
 corpus digest above. This verdict does not qualify production or distributed execution.

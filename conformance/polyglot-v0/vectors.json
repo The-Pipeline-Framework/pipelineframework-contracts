@@ -294,6 +294,41 @@
       "lexeme": "-0.00",
       "exact": "",
       "diagnostic": "INVALID_NUMBER_LEXEME"
+    },
+    {
+      "id": "decimal-small-finite",
+      "kind": "candidate-decimal-string",
+      "lexeme": "0.0000001",
+      "exact": "0.0000001",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "decimal-zero-scale",
+      "kind": "candidate-decimal-string",
+      "lexeme": "0.0000000",
+      "exact": "0.0000000",
+      "diagnostic": "OK"
+    },
+    {
+      "id": "integer-nonascii-digit",
+      "kind": "candidate-integer-string",
+      "lexeme": "1١",
+      "exact": "",
+      "diagnostic": "INVALID_NUMBER_LEXEME"
+    },
+    {
+      "id": "decimal-nonascii-digit",
+      "kind": "candidate-decimal-string",
+      "lexeme": "1.١",
+      "exact": "",
+      "diagnostic": "INVALID_NUMBER_LEXEME"
+    },
+    {
+      "id": "integer-trailing-newline",
+      "kind": "candidate-integer-string",
+      "lexeme": "12\n",
+      "exact": "",
+      "diagnostic": "INVALID_NUMBER_LEXEME"
     }
   ],
   "unions": [

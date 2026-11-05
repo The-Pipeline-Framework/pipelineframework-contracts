@@ -14,13 +14,13 @@ function presence(v) {
 }
 function number(v) {
   if (v.kind === 'json-safe-integer') {
-    if (!/^-?(0|[1-9]\d*)$/.test(v.lexeme) || v.lexeme === '-0') return ['UNSUPPORTED_NUMBER',''];
+    if (!/^-?(0|[1-9]\d*)(?![\s\S])/.test(v.lexeme) || v.lexeme === '-0') return ['UNSUPPORTED_NUMBER',''];
     const n = JSON.parse(v.lexeme);
     return Number.isSafeInteger(n) ? ['OK', String(n)] : ['UNSAFE_NUMBER', ''];
   }
-  if (v.kind === 'candidate-integer-string') return /^-?(0|[1-9]\d*)$/.test(v.lexeme) && v.lexeme!=='-0' ? ['OK', BigInt(v.lexeme).toString()] : ['INVALID_NUMBER_LEXEME',''];
+  if (v.kind === 'candidate-integer-string') return /^-?(0|[1-9]\d*)(?![\s\S])/.test(v.lexeme) && v.lexeme!=='-0' ? ['OK', BigInt(v.lexeme).toString()] : ['INVALID_NUMBER_LEXEME',''];
   if (v.kind === 'candidate-decimal-string') {
-    const match = /^(-?)(0|[1-9]\d*)\.(\d+)$/.exec(v.lexeme);
+    const match = /^(-?)(0|[1-9]\d*)\.(\d+)(?![\s\S])/.exec(v.lexeme);
     if (!match || (match[1]==='-' && BigInt(match[2]+match[3])===0n)) return ['INVALID_NUMBER_LEXEME',''];
     // A decimal is coefficient + scale; never binary float.
     const coefficient = BigInt(match[2] + match[3]);

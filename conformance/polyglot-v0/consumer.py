@@ -14,13 +14,13 @@ def presence(v):
 def number(v):
  kind=v['kind']; text=v['lexeme']
  if kind=='json-safe-integer':
-  if not re.fullmatch(r'-?(0|[1-9]\d*)',text) or text=='-0':return 'UNSUPPORTED_NUMBER',''
+  if not re.fullmatch(r'-?(0|[1-9][0-9]*)',text) or text=='-0':return 'UNSUPPORTED_NUMBER',''
   n=json.loads(text)
   return ('OK',str(n)) if isinstance(n,int) and abs(n)<=9007199254740991 else ('UNSAFE_NUMBER','')
- if kind=='candidate-integer-string':return ('OK',str(int(text))) if re.fullmatch(r'-?(0|[1-9]\d*)',text) and text!='-0' else ('INVALID_NUMBER_LEXEME','')
+ if kind=='candidate-integer-string':return ('OK',str(int(text))) if re.fullmatch(r'-?(0|[1-9][0-9]*)',text) and text!='-0' else ('INVALID_NUMBER_LEXEME','')
  if kind=='candidate-decimal-string':
-  if not re.fullmatch(r'-?(0|[1-9]\d*)\.\d+',text) or (text.startswith('-') and decimal.Decimal(text).is_zero()):return 'INVALID_NUMBER_LEXEME',''
-  return 'OK',str(decimal.Decimal(text))
+  if not re.fullmatch(r'-?(0|[1-9][0-9]*)\.[0-9]+',text) or (text.startswith('-') and decimal.Decimal(text).is_zero()):return 'INVALID_NUMBER_LEXEME',''
+  return 'OK',format(decimal.Decimal(text),'f')
  return 'UNKNOWN_NUMBER_KIND',''
 def sha(body): return hashlib.sha256(body).hexdigest()
 def sign(s):
