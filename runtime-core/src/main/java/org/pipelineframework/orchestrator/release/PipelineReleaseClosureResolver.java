@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 
 /** Reconstructs and verifies an exact release from its descriptor and environment-owned URI resolvers. */
 public final class PipelineReleaseClosureResolver {
@@ -61,7 +61,10 @@ public final class PipelineReleaseClosureResolver {
             }
 
             Path compiledTruthDirectory = Files.createDirectories(root.resolve("compiled-truth"));
-            extractCompiledTruth(compiledTruthArtifact, compiledTruthDirectory);
+            String packagePath = descriptor.deployment() == null ? "." : descriptor.deployment().entries().stream()
+                .filter(entry -> entry.artifactId().equals(descriptor.compiledTruthArtifactId()))
+                .map(PipelineReleaseDeployment.Entry::packagePath).findFirst().orElse(".");
+            extractCompiledTruth(compiledTruthArtifact, compiledTruthDirectory, packagePath);
             Path contractFile = compiledTruthDirectory.resolve(PipelineContractDescriptor.RESOURCE_PATH);
             if (!Files.isRegularFile(contractFile)) {
                 throw new IllegalArgumentException(
@@ -69,6 +72,9 @@ public final class PipelineReleaseClosureResolver {
             }
             PipelineContractDescriptor contract = contractReader.read(contractFile);
             validator.validate(descriptor, contract);
+            Map<String,Path> packages = new java.util.HashMap<>();
+            for (var artifact : resolved) packages.put(artifact.descriptor().artifactId(), artifact.file());
+            new PipelineReleasePackageVerifier().verify(descriptor, packages, compiledTruthDirectory.resolve(COMPILED_TRUTH_PREFIX));
             return new ResolvedPipelineRelease(descriptor, contract, resolved, compiledTruthDirectory);
         } catch (IOException | RuntimeException failure) {
             try {
@@ -131,31 +137,59 @@ public final class PipelineReleaseClosureResolver {
         }
     }
 
-    private static void extractCompiledTruth(Path archive, Path destination) throws IOException {
+    /** Extracts the declared carrier location; every other entry is subsequently checked against this truth. */
+    private static void extractCompiledTruth(Path archive, Path destination, String packagePath) throws IOException {
+        if (packagePath.equals(".")) {
+            extractRootCompiledTruth(archive, destination);
+            return;
+        }
         Path compiledTruthRoot = destination.resolve(COMPILED_TRUTH_PREFIX).normalize();
         Set<Path> extracted = new HashSet<>();
-        try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(archive))) {
-            ZipEntry entry;
-            while ((entry = zip.getNextEntry()) != null) {
+        var resources = PipelineReleasePackageVerifier.compiledTruth(archive, packagePath);
+        for (var entry : resources.entrySet()) {
+            String name = entry.getKey();
+            if (!name.startsWith(COMPILED_TRUTH_PREFIX)) continue;
+            Path output = destination.resolve(name).normalize();
+            if (name.contains("\\") || !output.startsWith(compiledTruthRoot) || output.equals(compiledTruthRoot))
+                throw new IllegalArgumentException("Compiled Truth archive entry escapes destination: " + name);
+            if (!extracted.add(output)) throw new IllegalArgumentException("Duplicate Compiled Truth archive entry " + name);
+            Files.createDirectories(output.getParent());
+            Files.write(output, entry.getValue());
+        }
+        if (extracted.isEmpty()) {
+            throw new IllegalArgumentException("Compiled Truth carrier contains no META-INF/pipeline resources");
+        }
+    }
+
+    /** Preserves schema-1/root-carrier extraction limits, traversal checks and diagnostics. */
+    private static void extractRootCompiledTruth(Path archive, Path destination) throws IOException {
+        Path compiledTruthRoot = destination.resolve(COMPILED_TRUTH_PREFIX).normalize();
+        Set<Path> extracted = new HashSet<>();
+        long extractedBytes = 0;
+        try (ZipFile zip = new ZipFile(archive.toFile())) {
+            var entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
                 String name = entry.getName();
-                if (entry.isDirectory() || !name.startsWith(COMPILED_TRUTH_PREFIX)) {
-                    continue;
-                }
+                if (entry.isDirectory() || !name.startsWith(COMPILED_TRUTH_PREFIX)) continue;
                 Path output = destination.resolve(name).normalize();
-                if (!output.startsWith(compiledTruthRoot) || output.equals(compiledTruthRoot)) {
+                if (name.contains("\\") || !output.startsWith(compiledTruthRoot) || output.equals(compiledTruthRoot))
                     throw new IllegalArgumentException("Compiled Truth archive entry escapes destination: " + name);
-                }
-                if (!extracted.add(output)) {
-                    throw new IllegalArgumentException("Duplicate Compiled Truth archive entry " + name);
-                }
+                if (!extracted.add(output)) throw new IllegalArgumentException("Duplicate Compiled Truth archive entry " + name);
+                if (extracted.size() > 4096) throw new IllegalArgumentException("Compiled Truth exceeds 4096 resources");
+                byte[] bytes;
+                try (var input = zip.getInputStream(entry)) { bytes = input.readNBytes(8 * 1024 * 1024 + 1); }
+                extractedBytes += bytes.length;
+                if (extractedBytes > 8 * 1024 * 1024) throw new IllegalArgumentException("Compiled Truth exceeds 8 MiB");
                 Files.createDirectories(output.getParent());
-                Files.copy(zip, output);
+                Files.write(output, bytes);
             }
         }
         if (extracted.isEmpty()) {
             throw new IllegalArgumentException("Compiled Truth carrier contains no META-INF/pipeline resources");
         }
     }
+
 
     private static MessageDigest sha256Digest() {
         try {

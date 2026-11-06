@@ -10,6 +10,23 @@ import org.junit.jupiter.api.Test;
 class PipelineJsonTest {
 
     @Test
+    void releaseSchemaOneKeepsOriginalWireShapeAndSchemaTwoDefaultsEntryPackagePath() throws Exception {
+        var mapper = PipelineJson.mapper();
+        String legacy = "{\"schemaVersion\":1,\"pipelineId\":\"p\",\"contractVersion\":\"c\",\"releaseVersion\":\"r\",\"compiledTruthArtifactId\":\"a\",\"artifacts\":[]}";
+        var loaded = mapper.readValue(legacy, org.pipelineframework.orchestrator.release.PipelineReleaseDescriptor.class);
+        assertEquals(mapper.readTree(legacy), mapper.readTree(mapper.writeValueAsBytes(loaded)));
+        String entryJson = "{\"entryId\":\"entry\",\"artifactId\":\"app\",\"runtimeId\":\"module\",\"packagePath\":\"lib/app.jar\",\"entryClass\":\"example.Entry\",\"trigger\":\"HTTP\",\"bindingIds\":[]}";
+        var entry = mapper.readValue(entryJson, org.pipelineframework.orchestrator.release.PipelineReleaseDeployment.Entry.class);
+        assertEquals("lib/app.jar", entry.entryPackagePath());
+        var payload = java.util.Map.of("payloadTypeId", "string", "payloadEncoding", "json", "payload", "null");
+        var deployment = new org.pipelineframework.orchestrator.release.PipelineReleaseDeployment("profile",
+            java.util.List.of(entry), java.util.List.of(),
+            new org.pipelineframework.orchestrator.release.PipelineReleaseDeployment.Check("entry", payload, payload, 1000));
+        var release = new org.pipelineframework.orchestrator.release.PipelineReleaseDescriptor(2,"p","c","r","a",java.util.List.of(),deployment);
+        assertEquals(release, mapper.readValue(mapper.writeValueAsBytes(release), org.pipelineframework.orchestrator.release.PipelineReleaseDescriptor.class));
+    }
+
+    @Test
     void serializesProtobufMessagesAsStableJson() throws Exception {
         DescriptorProtos.FileDescriptorSet payload = DescriptorProtos.FileDescriptorSet.newBuilder()
             .addFile(DescriptorProtos.FileDescriptorProto.newBuilder()

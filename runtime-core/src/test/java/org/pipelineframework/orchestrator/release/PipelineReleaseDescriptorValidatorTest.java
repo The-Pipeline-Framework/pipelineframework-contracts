@@ -258,6 +258,24 @@ class PipelineReleaseDescriptorValidatorTest {
         assertTrue(failure.getMessage().contains("Duplicate Compiled Truth archive entry"));
     }
 
+    @Test
+    void boundsCompiledTruthExpansionAndCleansTheRejectedClosure() throws Exception {
+        Path artifact = temporaryDirectory.resolve("oversized.jar");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(artifact))) {
+            zip.putNextEntry(new ZipEntry(PipelineContractDescriptor.RESOURCE_PATH));
+            zip.write(new byte[8 * 1024 * 1024 + 1]);
+            zip.closeEntry();
+        }
+        var descriptor = descriptor(artifact.toUri().toString(), sha256(artifact), List.of("Validate"), List.of("local","rest"));
+        var resolver = new PipelineReleaseClosureResolver(
+            Map.of(PipelineReleaseArtifactUri.Scheme.FILE, new FilePipelineReleaseArtifactResolver()),
+            ignored -> { throw new AssertionError("Oversized metadata must be rejected before parsing"); });
+        Path destination = temporaryDirectory.resolve("oversized-resolved");
+        var failure = assertThrows(IllegalArgumentException.class, () -> resolver.resolve(descriptor, destination));
+        assertTrue(failure.getMessage().contains("8 MiB"));
+        assertEmptyDirectory(destination);
+    }
+
     private IllegalArgumentException resolveInvalidArchive(String entry) throws Exception {
         Path artifact = archive(temporaryDirectory.resolve("invalid.jar"), entry);
         PipelineReleaseDescriptor descriptor = descriptor(
