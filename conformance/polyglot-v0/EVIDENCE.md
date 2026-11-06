@@ -38,7 +38,7 @@ or a general mutation-score claim.
 Contracts baseline: `acf6bd2db310462d526695ec65a5479b2c7f134f`.
 Runtime evidence refresh: `60dce3e400f51656631230ab9fe910ecb9a6c972` (read-only; no runtime changes).
 Root documentation baseline: `c7d4fe20c439f698e3be24cd3d56c0cf5b5f5702`.
-Corpus SHA-256: `31d727ca1abcea09811da7222de6b78a966b91d9d8decbcc052d4c6c6b384a44`.
+Corpus SHA-256: `ad6643ee51fc8fd9585b78015054f07c87bb46d61a2b1c28072dde45fd069f32`.
 
 Run the exact candidate commit containing this report. The runner prints the consumer results;
 the PR records its tested head. No Maven dependency, production source, published coordinate
@@ -48,6 +48,7 @@ Python use only their standard libraries. Their standalone commands do not start
 ```sh
 ./mvnw -B verify -Dmaven.repo.local="$PWD/.m2/repository" --no-transfer-progress
 python3 conformance/polyglot-v0/run.py --skip-build
+python3 -B -m unittest discover -s conformance/polyglot-v0 -p 'test_*.py'
 node conformance/polyglot-v0/consumer.mjs
 python3 conformance/polyglot-v0/consumer.py
 ```
@@ -59,8 +60,11 @@ Java reference check is separate from the eventual no-local-JVM native developer
 ## Results and review
 
 - Full canonical Maven `verify`: passed all ten modules on 6 November 2026 (23.429 seconds).
-- Combined consumer run: passed in Java, Node and Python (184, 177 and 177 checks respectively).
-  All nine deliberately corrupted null/precision/retry-oracle runs failed as required.
+- Revised consumer run after PR feedback: passed in Java, Node and Python
+  (246, 239 and 239 checks respectively). All 18 deliberate mutation runs failed at
+  their expected assertion identifiers, covering null/precision/retry answers, body
+  digest and invalid schema versions. Four runner regression tests passed, including
+  crash/wrong-assertion rejection and exact numeric fixture copying.
   These counts describe the executed harness, not a coverage or parity score.
 - Environment: OpenJDK 25.0.4.1, Node 26.8.2, Python 3.14.6 on macOS. CI records its own versions;
   this report does not claim an untested version matrix.
@@ -76,8 +80,18 @@ The same review also exposed Python's exponent formatting for small fixed-point 
 Fixed-point scale is now retained, and common ASCII/full-string numeric grammar is checked
 against non-ASCII digits and a trailing newline instead of relying on host regex defaults.
 Independent final adequacy/source review: **READY for the bounded contract-proposal/probe PR**.
-The reviewer reproduced the three consumer results and nine mutation rejections against the
+The reviewer reproduced the revised three consumer results and 18 mutation rejections against the
 corpus digest above. This verdict does not qualify production or distributed execution.
+
+PR feedback added regression cases for Java-compatible Unicode path blankness,
+validated asynchronous failure envelopes, independent nested-value round trips,
+raw union numeric spellings, boolean/fractional/missing configuration, arithmetic
+beyond 32 bits, exact body mutations and long integer atoms. Java context probes now
+wait at a shared barrier before either continues. The corpus parser and mutation
+writer preserve near-integer decimal values instead of rounding them into valid
+versions or retry limits. Named check functions and comments explain these rules;
+the README provides a concrete A/B walkthrough and distinguishes real calls from
+simulated remote histories. No production contract changed.
 
 GitNexus orientation/context/impact used the contracts index at the exact baseline. Its
 managed clone is a different Git repository from the isolated worktree: `detect_changes`
@@ -85,7 +99,9 @@ rejects that worktree, and the new probe files are not indexed. No index rebuild
 or performed. Accordingly, changed-symbol and PDG/taint coverage are **unavailable**, not zero
 impact. The automatic review gate uses disclosed source review and executable falsification
 for this surface. Root docs change analysis succeeded with its existing worktree index,
-supplemented by source review for the new ADR.
+supplemented by source review for the new ADR. During feedback review the root managed
+index was temporarily unavailable; its existing local-worktree index successfully
+analysed the two changed documentation files, with source review for wording.
 
 ## Remaining gaps and next bounded gate
 
