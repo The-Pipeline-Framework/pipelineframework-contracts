@@ -21,6 +21,19 @@ class PipelineReleaseRuntimeCapabilitiesTest {
         }
         assertThrows(IllegalArgumentException.class, () -> PipelineReleaseRuntimeCapabilities.parse(new byte[PipelineReleaseRuntimeCapabilities.MAX_BYTES+1]));
     }
+    @Test void encodedFactsRemainWithinTheParsersUtf8ByteLimit() throws Exception {
+        String name = "example." + "A".repeat(504);
+        var selected = new PipelineReleaseRuntimeCapabilities.Selection("dynamo", java.util.Collections.nCopies(16, name), true);
+        var bounded = new PipelineReleaseRuntimeCapabilities(1, Map.of(PipelineReleaseRuntimeCapabilities.COMMAND_EFFECT_DYNAMODB, selected));
+        byte[] bytes = bounded.encode();
+        assertTrue(bytes.length <= PipelineReleaseRuntimeCapabilities.MAX_BYTES);
+        assertEquals(bounded, PipelineReleaseRuntimeCapabilities.parse(bytes));
+        var oversized = new PipelineReleaseRuntimeCapabilities(1, Map.of(
+            PipelineReleaseRuntimeCapabilities.COMMAND_EFFECT_DYNAMODB, selected,
+            PipelineReleaseRuntimeCapabilities.QUERY_CAPTURE_DYNAMODB, selected));
+        assertThrows(IllegalArgumentException.class, oversized::encode);
+    }
+
     @Test void packageAssociationUsesExactSelectedRootOrNestedJarAndPreservesUnrequestedCompatibility() throws Exception {
         for(String path:List.of(".", "lib/application.jar")) {
             verify(path, FACT, true, null);

@@ -61,7 +61,10 @@ public final class PipelineReleaseClosureResolver {
             }
 
             Path compiledTruthDirectory = Files.createDirectories(root.resolve("compiled-truth"));
-            extractCompiledTruth(compiledTruthArtifact, compiledTruthDirectory);
+            String packagePath = descriptor.deployment() == null ? "." : descriptor.deployment().entries().stream()
+                .filter(entry -> entry.artifactId().equals(descriptor.compiledTruthArtifactId()))
+                .map(PipelineReleaseDeployment.Entry::packagePath).findFirst().orElse(".");
+            extractCompiledTruth(compiledTruthArtifact, compiledTruthDirectory, packagePath);
             Path contractFile = compiledTruthDirectory.resolve(PipelineContractDescriptor.RESOURCE_PATH);
             if (!Files.isRegularFile(contractFile)) {
                 throw new IllegalArgumentException(
@@ -134,7 +137,32 @@ public final class PipelineReleaseClosureResolver {
         }
     }
 
-    private static void extractCompiledTruth(Path archive, Path destination) throws IOException {
+    /** Extracts the declared carrier location; every other entry is subsequently checked against this truth. */
+    private static void extractCompiledTruth(Path archive, Path destination, String packagePath) throws IOException {
+        if (packagePath.equals(".")) {
+            extractRootCompiledTruth(archive, destination);
+            return;
+        }
+        Path compiledTruthRoot = destination.resolve(COMPILED_TRUTH_PREFIX).normalize();
+        Set<Path> extracted = new HashSet<>();
+        var resources = PipelineReleasePackageVerifier.compiledTruth(archive, packagePath);
+        for (var entry : resources.entrySet()) {
+            String name = entry.getKey();
+            if (!name.startsWith(COMPILED_TRUTH_PREFIX)) continue;
+            Path output = destination.resolve(name).normalize();
+            if (name.contains("\\") || !output.startsWith(compiledTruthRoot) || output.equals(compiledTruthRoot))
+                throw new IllegalArgumentException("Compiled Truth archive entry escapes destination: " + name);
+            if (!extracted.add(output)) throw new IllegalArgumentException("Duplicate Compiled Truth archive entry " + name);
+            Files.createDirectories(output.getParent());
+            Files.write(output, entry.getValue());
+        }
+        if (extracted.isEmpty()) {
+            throw new IllegalArgumentException("Compiled Truth carrier contains no META-INF/pipeline resources");
+        }
+    }
+
+    /** Preserves schema-1/root-carrier extraction limits, traversal checks and diagnostics. */
+    private static void extractRootCompiledTruth(Path archive, Path destination) throws IOException {
         Path compiledTruthRoot = destination.resolve(COMPILED_TRUTH_PREFIX).normalize();
         Set<Path> extracted = new HashSet<>();
         long extractedBytes = 0;
@@ -161,6 +189,7 @@ public final class PipelineReleaseClosureResolver {
             throw new IllegalArgumentException("Compiled Truth carrier contains no META-INF/pipeline resources");
         }
     }
+
 
     private static MessageDigest sha256Digest() {
         try {

@@ -19,6 +19,7 @@ public record PipelineReleaseRuntimeCapabilities(int schemaVersion, Map<String, 
     private static final List<Map.Entry<String, String>> STORE_FIELDS = List.of(
         Map.entry(COMMAND_EFFECT_DYNAMODB, "commandEffectStore"),
         Map.entry(QUERY_CAPTURE_DYNAMODB, "queryCaptureStore"));
+    /** Validates the bounded schema and snapshots selected implementation facts. */
     public PipelineReleaseRuntimeCapabilities {
         if (schemaVersion != 1) throw new IllegalArgumentException("Unsupported runtime capability facts schema");
         capabilities = Map.copyOf(Objects.requireNonNull(capabilities, "Runtime capability facts are required"));
@@ -26,6 +27,7 @@ public record PipelineReleaseRuntimeCapabilities(int schemaVersion, Map<String, 
             throw new IllegalArgumentException("Invalid runtime capability facts");
     }
     public record Selection(String provider, List<String> selectedBeans, boolean recoverySupported) {
+        /** Bounds provider and bean identities; a declared provider alone does not authorize recovery. */
         public Selection {
             if (provider == null || !provider.matches("[a-z][a-z0-9.-]{0,127}"))
                 throw new IllegalArgumentException("Runtime capability provider is required");
@@ -34,6 +36,7 @@ public record PipelineReleaseRuntimeCapabilities(int schemaVersion, Map<String, 
                 throw new IllegalArgumentException("Invalid selected runtime beans");
         }
     }
+    /** Rejects absent, ambiguous, unsupported or non-recoverable selections for a required store. */
     public Selection requireRecoverable(String capability) {
         var selection = capabilities.get(capability);
         if (selection == null || !selection.recoverySupported() || selection.selectedBeans().size() != 1
@@ -41,6 +44,7 @@ public record PipelineReleaseRuntimeCapabilities(int schemaVersion, Map<String, 
             throw new IllegalArgumentException("Package does not provide the required recoverable runtime capability " + capability);
         return selection;
     }
+    /** Parses bounded unique facts and rejects unsupported or incomplete fields. */
     public static PipelineReleaseRuntimeCapabilities parse(byte[] bytes) throws IOException {
         if (bytes == null || bytes.length == 0 || bytes.length > MAX_BYTES)
             throw new IllegalArgumentException("Bounded runtime capability facts are required");
@@ -86,9 +90,12 @@ public record PipelineReleaseRuntimeCapabilities(int schemaVersion, Map<String, 
                 .append(String.join(",", selected.selectedBeans().stream().sorted().toList())).append('\n');
             output.append(prefix).append(".recoverySupported=").append(selected.recoverySupported()).append('\n');
         }
-        return output.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = output.toString().getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_BYTES) throw new IllegalArgumentException("Runtime capability facts exceed supported size limit");
+        return bytes;
     }
 
+    /** Identifies the finite store requirements whose recovery evidence is understood here. */
     static boolean isStoreCapability(String capability) {
         return STORE_FIELDS.stream().anyMatch(store -> store.getKey().equals(capability));
     }

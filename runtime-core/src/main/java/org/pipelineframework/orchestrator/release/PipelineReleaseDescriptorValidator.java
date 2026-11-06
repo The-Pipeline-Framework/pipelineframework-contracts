@@ -76,6 +76,7 @@ public final class PipelineReleaseDescriptorValidator {
         }
     }
 
+    /** Checks package declarations, references and readiness envelopes without resolving external artifacts. */
     private static void validateDeployment(PipelineReleaseDescriptor descriptor) {
         var deployment = descriptor.deployment();
         if (deployment == null) return;
@@ -122,6 +123,7 @@ public final class PipelineReleaseDescriptorValidator {
         validatePayload(check.expectedResult());
     }
 
+    /** Accepts the archive root or an exact safe nested JAR path, including lib/application.jar. */
     private static void validatePackagePath(String value) {
         String path = requireText(value, "packagePath");
         if (!path.equals(".") && (!path.endsWith(".jar") || path.startsWith("/") || path.contains("\\")
@@ -129,6 +131,7 @@ public final class PipelineReleaseDescriptorValidator {
             throw new IllegalArgumentException("packagePath must be '.' or a safe exact nested JAR path");
     }
 
+    /** Restricts readiness data to the existing bounded serialized transition envelope. */
     private static void validatePayload(Map<String,String> payload) {
         if (!payload.keySet().equals(Set.of("payloadTypeId", "payloadEncoding", "payload")))
             throw new IllegalArgumentException("Check payload must use SerializedTransitionPayload wire fields");

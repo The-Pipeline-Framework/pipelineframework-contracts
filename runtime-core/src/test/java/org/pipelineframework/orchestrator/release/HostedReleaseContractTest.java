@@ -10,9 +10,25 @@ class HostedReleaseContractTest {
 
     @Test void acceptsMultiplePhysicalEntriesWithoutDuplicatingSemanticOwnership() {
         var release = release(deployment("app", "lib/application.jar"));
-        validator.validate(release);
+        validator.validate(release, contract());
         assertEquals(2, release.deployment().entries().size());
         assertEquals(List.of("Transform"), release.artifacts().getFirst().stepIds());
+    }
+
+    @Test void contractValidationRejectsDuplicatedStepOwnershipAcrossValidPhysicalEntries() {
+        var original = release(deployment("app", "lib/application.jar"));
+        var second = new PipelineReleaseArtifactDescriptor("second", "lambda-zip", "maven:example:second:zip:1",
+            "sha256:" + "c".repeat(64), List.of("Transform"), List.of("local"));
+        var entries = new java.util.ArrayList<>(original.deployment().entries());
+        entries.add(new PipelineReleaseDeployment.Entry("second-http", "second", "app", "lib/application.jar",
+            "example.HttpEntry", "HTTP", List.of("route")));
+        var deployment = new PipelineReleaseDeployment(original.deployment().profile(), entries,
+            original.deployment().bindings(), original.deployment().check());
+        var duplicate = new PipelineReleaseDescriptor(2, "sample", "contract", "A", "truth",
+            List.of(original.artifacts().getFirst(), second, original.artifacts().get(1)), deployment);
+        assertDoesNotThrow(() -> validator.validate(duplicate));
+        var failure = assertThrows(IllegalArgumentException.class, () -> validator.validate(duplicate, contract()));
+        assertTrue(failure.getMessage().contains("exactly one deployable artifact"), failure.getMessage());
     }
 
     @Test void legacyReleaseRemainsReadableButIsNotHostedDeployable() {
@@ -46,6 +62,14 @@ class HostedReleaseContractTest {
         var wrongCheck = new PipelineReleaseDeployment.Check("absent", payload("x"), payload("y"), 1000);
         assertThrows(IllegalArgumentException.class, () -> validator.validate(release(
             new PipelineReleaseDeployment(valid.profile(), valid.entries(), valid.bindings(), wrongCheck))));
+    }
+
+    /** Matching one-step semantic contract used independently of physical entry count. */
+    static PipelineContractDescriptor contract() {
+        return new PipelineContractDescriptor(1, "sample", "contract", "hash", "FUNCTION", "REST", "app", false, "monolith",
+            List.of(new org.pipelineframework.orchestrator.PipelineBundleStepDescriptor(0, "Transform", "service", "ONE_TO_ONE",
+                "input", "output", "example.Transform", "", Map.of())),
+            new org.pipelineframework.orchestrator.PipelineBundleCapabilities(true, List.of()));
     }
 
     static PipelineReleaseDescriptor release(PipelineReleaseDeployment deployment) {
