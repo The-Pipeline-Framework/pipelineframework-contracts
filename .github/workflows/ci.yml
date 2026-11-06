@@ -25,6 +25,17 @@ jobs:
         run: node --test scripts/require-monorepo-artifact-publishers-stop.test.mjs
       - name: Verify the canonical contract artifact
         run: ./mvnw -B clean verify -Dmaven.repo.local="$GITHUB_WORKSPACE/.m2/repository" --no-transfer-progress
+      - name: Set up Node for exact-number conformance
+        # Exact-number checks use JSON.parse's source-token support.
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.23.4'
+      - name: Check provisional polyglot contracts in Java, Node and Python
+        run: |
+          node --version
+          python3 --version
+          python3 -B -m unittest discover -s conformance/polyglot-v0 -p 'test_*.py'
+          python3 conformance/polyglot-v0/run.py --skip-build
       - name: Publish contracts coverage report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
