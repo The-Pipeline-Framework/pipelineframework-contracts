@@ -12,13 +12,27 @@ public record PipelineReleaseDescriptor(
     String contractVersion,
     String releaseVersion,
     String compiledTruthArtifactId,
-    List<PipelineReleaseArtifactDescriptor> artifacts
+    List<PipelineReleaseArtifactDescriptor> artifacts,
+    PipelineReleaseDeployment deployment
 ) {
+    /** Default writer remains schema 1 for existing customer-managed consumers. */
     public static final int CURRENT_SCHEMA_VERSION = 1;
+    public static final int DEPLOYMENT_SCHEMA_VERSION = 2;
+
+    public PipelineReleaseDescriptor(int schemaVersion, String pipelineId, String contractVersion,
+        String releaseVersion, String compiledTruthArtifactId, List<PipelineReleaseArtifactDescriptor> artifacts) {
+        this(schemaVersion, pipelineId, contractVersion, releaseVersion, compiledTruthArtifactId, artifacts, null);
+    }
 
     public PipelineReleaseDescriptor {
-        if (schemaVersion != CURRENT_SCHEMA_VERSION) {
+        if (schemaVersion != CURRENT_SCHEMA_VERSION && schemaVersion != DEPLOYMENT_SCHEMA_VERSION) {
             throw new IllegalArgumentException("Unsupported pipeline release schemaVersion " + schemaVersion);
+        }
+        if (schemaVersion == 1 && deployment != null) {
+            throw new IllegalArgumentException("Deployment information requires Release schema 2");
+        }
+        if (schemaVersion == 2 && deployment == null) {
+            throw new IllegalArgumentException("Release schema 2 requires deployment information");
         }
         Objects.requireNonNull(pipelineId, "pipelineId");
         Objects.requireNonNull(contractVersion, "contractVersion");

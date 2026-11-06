@@ -22,6 +22,11 @@ public enum PipelineReleaseArtifactKind {
         this.compiledTruthCarrier = compiledTruthCarrier;
     }
 
+    /** Formats for which schema-2 Java entry/package association can be verified before delivery. */
+    public boolean supportsJavaEntryAssociation() {
+        return this == JAR || this == APPLICATION_ARCHIVE || this == LAMBDA_ZIP;
+    }
+
     public String wireValue() {
         return wireValue;
     }

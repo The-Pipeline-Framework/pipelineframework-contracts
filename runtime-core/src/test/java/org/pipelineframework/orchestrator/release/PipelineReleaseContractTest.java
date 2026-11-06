@@ -71,7 +71,7 @@ class PipelineReleaseContractTest {
     @Test
     void rejectsUnknownReleaseSchema() {
         assertThrows(IllegalArgumentException.class, () -> new PipelineReleaseDescriptor(
-            PipelineReleaseDescriptor.CURRENT_SCHEMA_VERSION + 1,
+            PipelineReleaseDescriptor.DEPLOYMENT_SCHEMA_VERSION + 1,
             "payments",
             "contract-v1",
             "release-v1",
