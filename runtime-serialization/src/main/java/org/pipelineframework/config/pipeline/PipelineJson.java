@@ -56,6 +56,8 @@ public final class PipelineJson {
 
     private static ObjectMapper createMapper() {
         ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+        mapper.addMixIn(org.pipelineframework.orchestrator.release.PipelineReleaseDescriptor.class,
+            PipelineReleaseDescriptorMixin.class);
         mapper.addMixIn(ConnectorProviderId.class, ConnectorProviderIdMixin.class);
         mapper.addMixIn(org.pipelineframework.orchestrator.release.PipelineContractDescriptor.class,
             PipelineContractDescriptorMixin.class);
@@ -72,6 +74,11 @@ public final class PipelineJson {
                 com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY,
                 com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS));
         return mapper;
+    }
+
+    private abstract static class PipelineReleaseDescriptorMixin {
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        abstract org.pipelineframework.orchestrator.release.PipelineReleaseDeployment deployment();
     }
 
     private abstract static class PipelineContractDescriptorMixin {
