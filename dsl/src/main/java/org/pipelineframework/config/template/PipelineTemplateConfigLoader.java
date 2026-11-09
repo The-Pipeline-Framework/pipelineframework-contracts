@@ -1023,18 +1023,39 @@ public class PipelineTemplateConfigLoader {
             return;
         }
         PipelineTemplateStep first = steps.getFirst();
-        if (inputContract != null && !typeModel.isAssignable(inputContract, first.inputTypeName())) {
+        if (inputContract != null && !admitsInputContract(typeModel, inputContract, first.inputTypeName())) {
             throw new IllegalStateException("Pipeline input contract '" + inputContract + "' is not assignable to first step '"
                 + first.name() + "' input '" + first.inputTypeName() + "'.");
         }
+        Set<String> inputLeaves = inputContract == null ? Set.of() : typeModel.concreteTypeNames(inputContract);
+        Set<String> uncoveredInputs = new LinkedHashSet<>(inputLeaves);
+        for (PipelineTemplateStep step : steps) {
+            List<String> selectors = step.accepts().isEmpty() ? List.of(step.inputTypeName()) : step.accepts();
+            selectors.forEach(selector -> uncoveredInputs.removeAll(typeModel.concreteTypeNames(selector)));
+        }
+        // Ordinary steps preserve skipped alternatives; an explicit definition output can
+        // complete an already-valid input without introducing an authored identity consumer.
+        if (outputContract != null && steps.stream().noneMatch(PipelineTemplateStep::terminal)) {
+            uncoveredInputs.removeAll(typeModel.concreteTypeNames(outputContract));
+        }
+        if (!uncoveredInputs.isEmpty()) {
+            throw new IllegalStateException("Pipeline input contract '" + inputContract
+                + "' has no applicable entry consumer or compatible definition output for concrete types "
+                + uncoveredInputs + ".");
+        }
         for (int index = 1; index < steps.size(); index++) {
             PipelineTemplateStep current = steps.get(index);
+            List<String> selectors = current.accepts().isEmpty()
+                ? List.of(current.inputTypeName()) : current.accepts();
+            boolean suppliedByPipelineInput = selectors.stream()
+                .flatMap(selector -> typeModel.concreteTypeNames(selector).stream())
+                .anyMatch(inputLeaves::contains);
             boolean suppliedByAnEarlierStep = steps.subList(0, index).stream()
                 .anyMatch(previous -> PipelineTemplateV3FlowCompatibility.compatible(
                     typeModel, previous.outputTypeName(), current.inputTypeName())
                     || current.accepts().stream().flatMap(selector -> typeModel.concreteTypeNames(selector).stream())
                         .anyMatch(typeModel.concreteTypeNames(previous.outputTypeName())::contains));
-            if (!suppliedByAnEarlierStep) {
+            if (!suppliedByPipelineInput && !suppliedByAnEarlierStep) {
                 throw new IllegalStateException("No preceding step output is assignable to step '" + current.name()
                     + "' input '" + current.inputTypeName() + "'.");
             }
@@ -1046,6 +1067,23 @@ public class PipelineTemplateConfigLoader {
         }
     }
 
+
+    /**
+     * Definition input is a set of admitted payloads, while a branch step may declare a broader
+     * carrier for intermediate states. Every admitted payload must fit that carrier. This does
+     * not make the two union representations assignable, or permit partially overlapping unions.
+     */
+    private boolean admitsInputContract(PipelineTemplateTypeModel typeModel, String input, String carrier) {
+        if (typeModel.isAssignable(input, carrier)) {
+            return true;
+        }
+        PipelineTemplateTypeReference resolved = typeModel.resolveAliases(
+            new PipelineTemplateTypeReference.Named(carrier));
+        return typeModel.definition(resolved.name())
+            .filter(PipelineTemplateTypeDefinition.UnionType.class::isInstance)
+            .isPresent()
+            && typeModel.concreteTypeNames(carrier).containsAll(typeModel.concreteTypeNames(input));
+    }
 
     private boolean isRecordContract(PipelineTemplateTypeModel typeModel, String contract) {
         PipelineTemplateTypeReference resolved = typeModel.resolveAliases(new PipelineTemplateTypeReference.Named(contract));
