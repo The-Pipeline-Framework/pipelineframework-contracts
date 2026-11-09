@@ -36,6 +36,8 @@ jobs:
           python3 --version
           python3 -B -m unittest discover -s conformance/polyglot-v0 -p 'test_*.py'
           python3 conformance/polyglot-v0/run.py --skip-build
+          python3 -B -m unittest discover -s conformance/polyglot-policy-v1 -p 'test_*.py'
+          python3 conformance/polyglot-policy-v1/run.py --skip-build
       - name: Publish contracts coverage report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
