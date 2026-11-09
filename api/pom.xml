@@ -22,7 +22,38 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource><directory>src/main/resources</directory><filtering>false</filtering></resource>
+            <resource><directory>src/main/build-metadata</directory><filtering>true</filtering></resource>
+        </resources>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>verify-packaged-contracts-version</id>
+                        <phase>verify</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <loadproperties prefix="contracts.jar">
+                                    <zipentry zipfile="${project.build.directory}/${project.build.finalName}.jar"
+                                              name="META-INF/tpf/contracts-version.properties"/>
+                                </loadproperties>
+                                <fail message="API JAR is missing contracts version metadata or its version does not match ${project.version}">
+                                    <condition>
+                                        <not>
+                                            <equals arg1="${contracts.jar.version}" arg2="${project.version}"/>
+                                        </not>
+                                    </condition>
+                                </fail>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
