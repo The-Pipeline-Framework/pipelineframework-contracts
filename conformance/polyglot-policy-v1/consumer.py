@@ -11,7 +11,7 @@ import sys
 from types import MappingProxyType
 
 PROFILE = 'tpf-polyglot-unary-policy/1'
-REQUIRED = set('success b-budget-zero b-budget-one exhaust-preserves-failure business-rejection raw-host-exception wire-unclassified unknown-code malformed-failure missing-failure-field lying-eligibility spoofed-owner spoofed-step unclassified-unsanitised raw-null implicit-return empty missing-value nonnull-null nullable-tagged-null legacy-retry legacy-recovery cancel-prestart cancel-inflight-success cancel-inflight-failure cancel-handoff cancel-pending-retry cancel-after-b-start cancel-duplicate complete-before-cancel failure-before-cancel invalid-before-cancel context-missing context-absent context-blank context-type context-authority context-non-ascii unsupported-owner invalid-budget invalid-declaration budget-equivalent budget-rounded budget-negative budget-too-large budget-string'.split())
+REQUIRED = set('success b-budget-zero b-budget-one exhaust-preserves-failure business-rejection raw-host-exception wire-unclassified unknown-code malformed-failure missing-failure-field lying-eligibility spoofed-owner spoofed-step unclassified-unsanitised raw-null implicit-return empty missing-value nonnull-null nullable-tagged-null legacy-retry legacy-recovery cancel-prestart cancel-inflight-success cancel-inflight-failure cancel-handoff cancel-pending-retry cancel-after-b-start cancel-duplicate complete-before-cancel failure-before-cancel invalid-before-cancel context-missing context-absent context-blank context-type context-authority context-non-ascii unsupported-owner invalid-budget invalid-declaration budget-equivalent budget-rounded budget-negative budget-too-large budget-string missing-nullable absent-budgets null-budgets nonobject-budgets missing-owner missing-failure-envelope missing-legacy-retry missing-recovery string-budgets'.split())
 SANITISED = 'Unclassified business function failure'
 
 
@@ -90,11 +90,12 @@ def execute(case):
 
     try:
         snapshot = context_snapshot(case.get('context'))
-        if any(type(case[k]) is not bool for k in ('nullable','legacyRetry','recovery')):
+        if any(type(case.get(k)) is not bool for k in ('nullable','legacyRetry','recovery')):
             raise ValueError('INVALID_POLICY')
-        if case['owner'] != 'LOCAL_SHELL' or case['legacyRetry'] or case['recovery']:
+        if case.get('owner') != 'LOCAL_SHELL' or case['legacyRetry'] or case['recovery']:
             raise ValueError('POLICY_OWNERSHIP_CONFLICT')
-        if set(case['retryLimits']) != set('ABC') or any(not config_number(v, (0,1,2)) for v in case['retryLimits'].values()):
+        limits = case.get('retryLimits')
+        if not isinstance(limits, dict) or set(limits) != set('ABC') or any(not config_number(v, (0,1,2)) for v in limits.values()):
             raise ValueError('INVALID_POLICY')
     except ValueError as error:
         finish({'kind':'REJECTED','diagnostic':str(error)})
@@ -128,7 +129,7 @@ def execute(case):
                     except RuntimeError:
                         candidate = {'code':'UNCLASSIFIED','message':SANITISED,'owner':'LOCAL_SHELL','stepId':step,'retryable':False}
                 else:
-                    candidate = event['failure']
+                    candidate = event.get('failure')
                 failure = failure_mapping(candidate, step)
                 if failure['code'] == 'TRANSIENT' and counts[step] <= case['retryLimits'][step]:
                     next_step = step  # only this step retries; A stays materialised

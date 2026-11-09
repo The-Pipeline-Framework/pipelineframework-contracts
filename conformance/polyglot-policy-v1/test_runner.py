@@ -23,8 +23,18 @@ class RunnerTest(unittest.TestCase):
             self.assertNotEqual(runner.v0.fixture_json(changed), runner.v0.fixture_json(original), name)
             self.assertTrue(check.startswith(('cases/','corpus/','context/')))
             if name not in ('missing','duplicate'):
-                self.assertEqual([row['events'] for row in changed['cases']],
-                                 [row['events'] for row in original['cases']])
+                # Strip only oracle fields. Context, policy, events and isolation
+                # inputs must all survive, including exact numeric spellings.
+                inputs = []
+                for document in (original, changed):
+                    input_only = copy.deepcopy(document)
+                    for row in input_only['cases']:
+                        row.pop('expected')
+                    input_only['isolation'].pop('expected')
+                    if name.startswith('schema-'):
+                        input_only.pop('schemaVersion')
+                    inputs.append(runner.v0.fixture_json(input_only))
+                self.assertEqual(inputs[0], inputs[1], name)
 
     def test_missing_and_duplicate_really_change_membership(self):
         original = json.loads((HERE/'vectors.json').read_text(), parse_float=runner.v0.NumberLexeme)

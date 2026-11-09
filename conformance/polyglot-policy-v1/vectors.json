@@ -3345,6 +3345,656 @@
         "B": 1,
         "C": 0
       }
+    },
+    {
+      "id": "missing-nullable",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "owner": "LOCAL_SHELL",
+      "legacyRetry": false,
+      "recovery": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "return",
+          "step": "A",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 4
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "B"
+        },
+        {
+          "kind": "return",
+          "step": "B",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 8
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "C"
+        },
+        {
+          "kind": "return",
+          "step": "C",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 5
+          }
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "INVALID_POLICY"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "INVALID_POLICY"
+          }
+        ]
+      },
+      "retryLimits": {
+        "A": 2,
+        "B": 1,
+        "C": 0
+      }
+    },
+    {
+      "id": "absent-budgets",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "owner": "LOCAL_SHELL",
+      "nullable": false,
+      "legacyRetry": false,
+      "recovery": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "return",
+          "step": "A",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 4
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "B"
+        },
+        {
+          "kind": "return",
+          "step": "B",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 8
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "C"
+        },
+        {
+          "kind": "return",
+          "step": "C",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 5
+          }
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "INVALID_POLICY"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "INVALID_POLICY"
+          }
+        ]
+      }
+    },
+    {
+      "id": "null-budgets",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "owner": "LOCAL_SHELL",
+      "nullable": false,
+      "legacyRetry": false,
+      "recovery": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "return",
+          "step": "A",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 4
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "B"
+        },
+        {
+          "kind": "return",
+          "step": "B",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 8
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "C"
+        },
+        {
+          "kind": "return",
+          "step": "C",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 5
+          }
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "INVALID_POLICY"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "INVALID_POLICY"
+          }
+        ]
+      },
+      "retryLimits": null
+    },
+    {
+      "id": "nonobject-budgets",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "owner": "LOCAL_SHELL",
+      "nullable": false,
+      "legacyRetry": false,
+      "recovery": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "return",
+          "step": "A",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 4
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "B"
+        },
+        {
+          "kind": "return",
+          "step": "B",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 8
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "C"
+        },
+        {
+          "kind": "return",
+          "step": "C",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 5
+          }
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "INVALID_POLICY"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "INVALID_POLICY"
+          }
+        ]
+      },
+      "retryLimits": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    {
+      "id": "missing-owner",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "nullable": false,
+      "legacyRetry": false,
+      "recovery": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "return",
+          "step": "A",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 4
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "B"
+        },
+        {
+          "kind": "return",
+          "step": "B",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 8
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "C"
+        },
+        {
+          "kind": "return",
+          "step": "C",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 5
+          }
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "POLICY_OWNERSHIP_CONFLICT"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "POLICY_OWNERSHIP_CONFLICT"
+          }
+        ]
+      },
+      "retryLimits": {
+        "A": 2,
+        "B": 1,
+        "C": 0
+      }
+    },
+    {
+      "id": "missing-failure-envelope",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "owner": "LOCAL_SHELL",
+      "nullable": false,
+      "legacyRetry": false,
+      "recovery": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "failure",
+          "step": "A"
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 1,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [
+            3
+          ],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "MALFORMED_FAILURE"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "MALFORMED_FAILURE"
+          }
+        ]
+      },
+      "retryLimits": {
+        "A": 2,
+        "B": 1,
+        "C": 0
+      }
+    },
+    {
+      "id": "missing-legacy-retry",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "owner": "LOCAL_SHELL",
+      "nullable": false,
+      "recovery": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "return",
+          "step": "A",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 4
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "B"
+        },
+        {
+          "kind": "return",
+          "step": "B",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 8
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "C"
+        },
+        {
+          "kind": "return",
+          "step": "C",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 5
+          }
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "INVALID_POLICY"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "INVALID_POLICY"
+          }
+        ]
+      },
+      "retryLimits": {
+        "A": 2,
+        "B": 1,
+        "C": 0
+      }
+    },
+    {
+      "id": "missing-recovery",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "owner": "LOCAL_SHELL",
+      "nullable": false,
+      "legacyRetry": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "return",
+          "step": "A",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 4
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "B"
+        },
+        {
+          "kind": "return",
+          "step": "B",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 8
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "C"
+        },
+        {
+          "kind": "return",
+          "step": "C",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 5
+          }
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "INVALID_POLICY"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "INVALID_POLICY"
+          }
+        ]
+      },
+      "retryLimits": {
+        "A": 2,
+        "B": 1,
+        "C": 0
+      }
+    },
+    {
+      "id": "string-budgets",
+      "context": {
+        "executionId": "execution-1",
+        "traceId": "trace-1"
+      },
+      "owner": "LOCAL_SHELL",
+      "nullable": false,
+      "legacyRetry": false,
+      "recovery": false,
+      "events": [
+        {
+          "kind": "dispatch",
+          "step": "A"
+        },
+        {
+          "kind": "return",
+          "step": "A",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 4
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "B"
+        },
+        {
+          "kind": "return",
+          "step": "B",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 8
+          }
+        },
+        {
+          "kind": "dispatch",
+          "step": "C"
+        },
+        {
+          "kind": "return",
+          "step": "C",
+          "outcome": {
+            "kind": "VALUE",
+            "value": 5
+          }
+        }
+      ],
+      "expected": {
+        "attempts": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "attemptInputs": {
+          "A": [],
+          "B": [],
+          "C": []
+        },
+        "terminal": {
+          "kind": "REJECTED",
+          "diagnostic": "INVALID_POLICY"
+        },
+        "observations": 1,
+        "delivery": [
+          {
+            "kind": "REJECTED",
+            "diagnostic": "INVALID_POLICY"
+          }
+        ]
+      },
+      "retryLimits": "ABC"
     }
   ],
   "isolation": {
