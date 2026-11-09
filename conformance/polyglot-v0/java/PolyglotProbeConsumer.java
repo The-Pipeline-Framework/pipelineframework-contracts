@@ -161,8 +161,13 @@ public final class PolyglotProbeConsumer {
     /** Delegates HMAC to the real signer while independently checking its fixed preimage oracle. */
     private String signature(JsonNode request) {
         return TransitionWorkerSignature.sign(text(request, "secret"), text(request, "method"),
-            text(request, "path"), text(request, "timestamp"), text(request, "nonce"),
+            signaturePath(request), text(request, "timestamp"), text(request, "nonce"),
             Base64.getDecoder().decode(text(request, "bodyBase64")));
+    }
+
+    private String signaturePath(JsonNode request) {
+        // The signer maps a null path to the root. Keep null out of the Java call.
+        return request.path("path").isNull() ? "/" : text(request, "path");
     }
 
     /** Mirrors the signer's Java String.isBlank rule, including its Unicode distinctions. */
@@ -174,7 +179,7 @@ public final class PolyglotProbeConsumer {
     }
 
     private String signaturePreimage(JsonNode request) throws Exception {
-        return String.join("\n", text(request, "method"), normalizedPath(text(request, "path")),
+        return String.join("\n", text(request, "method"), normalizedPath(signaturePath(request)),
             text(request, "timestamp"), text(request, "nonce"),
             sha(Base64.getDecoder().decode(text(request, "bodyBase64"))));
     }
@@ -250,7 +255,15 @@ public final class PolyglotProbeConsumer {
         /** Runs the probe's fixed A-then-B shape; only this shell decides whether A can retry. */
         CompletableFuture<Outcome> run() {
             return CompletableFuture.supplyAsync(() -> {
-                for (int delivery = 0; delivery < policy.path("deliveries").asInt(); delivery++) {
+                String owner = text(policy, "retryOwner");
+                boolean coordinator = owner.equals("coordinator-per-delivery");
+                JsonNode count = policy.path("deliveries");
+                int deliveries = count.asInt();
+                if ((!coordinator && !Set.of("local-invocation-shell", "callee-invocation-shell").contains(owner))
+                    || deliveries < 1 || (!coordinator && deliveries != 1) || !exactNumber(count, deliveries)) {
+                    return outcome("POLICY_CONFLICT", 0);
+                }
+                for (int delivery = 0; delivery < deliveries; delivery++) {
                     callerAttempts++;
                     for (int attempt = 0; attempt <= policy.path("retryLimit").asInt(); attempt++) {
                         aAttempts++;
@@ -261,6 +274,9 @@ public final class PolyglotProbeConsumer {
                         } catch (CompletionException exception) {
                             if (!(exception.getCause() instanceof InvocationFailure failed)) {
                                 throw exception;
+                            }
+                            if (cancelled.get()) {
+                                return outcome("CANCELLED", 0);
                             }
                             String diagnostic = failureDiagnostic(failed.envelope);
                             if (!diagnostic.equals("OK")) {

@@ -75,9 +75,10 @@ python3 conformance/polyglot-v0/run.py --skip-build
 ```
 
 Expect one JSON `PASS` result per language, then a `PASS` result with
-`mutationChecks: 18`: six changes, each checked by three languages. Those changes
-cover null versus absence, numeric precision, retry counts, the signed body's digest,
-and boolean/fractional schema versions. The runner checks exit status **and** a stable
+`mutationChecks: 36`: twelve changes, each checked by three languages. These cover
+presence, numeric precision, retry counts and ownership, cancellation before retry,
+malformed and injected failures, signing, and invalid schema versions. The runner
+checks exit status **and** a stable
 `CONFORMANCE_MISMATCH:<check-id>` line for each expected rejection.
 
 A normal consumer failure names the check, such as `numbers/large-candidate/exact`,
@@ -178,7 +179,9 @@ stores from business data. Nonce checks use a test set, not a durable authorisat
 The LOCAL examples really call asynchronous functions, propagate failures and observe
 context within each language process. The `remote-policy-history` and `redelivery-history`
 examples use those same local functions to **simulate** ownership and attempt counts.
-They open no sockets and do not exercise a coordinator. Three per-step attempts on each
+Local and callee owners admit a single delivery. Only the coordinator history can
+admit multiple deliveries. An incompatible owner rejects before A starts. The
+simulations open no sockets and do not exercise a coordinator. Three per-step attempts on each
 of two coordinator deliveries could mean six invocations: this is not exactly-once execution.
 
 The corpus does not prove compiler generation, native artifact loading, real REST/gRPC

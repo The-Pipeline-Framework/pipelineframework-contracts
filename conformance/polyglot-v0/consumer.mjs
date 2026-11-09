@@ -15,9 +15,9 @@ const numericLexemes = Symbol('probe configuration number lexemes');
 const corpus = JSON.parse(fs.readFileSync(
   process.argv[2] ?? new URL('./vectors.json', import.meta.url), 'utf8'),
 function rememberConfigurationNumber(key, value, context) {
-  if (['schemaVersion', 'retryLimit'].includes(key) && typeof value === 'number') {
+  if (['schemaVersion', 'retryLimit', 'deliveries'].includes(key) && typeof value === 'number') {
     if (!Object.hasOwn(this, numericLexemes)) {
-      Object.defineProperty(this, numericLexemes, {value: new Map()});
+      Object.defineProperty(this, numericLexemes, {value: new Map(), enumerable: true});
     }
     this[numericLexemes].set(key, context.source);
   }
@@ -44,9 +44,12 @@ function exactConfigNumber(object, key, expected) {
   const digits = (match[2] + fraction).replace(/^0+/, '');
   const significant = digits.replace(/0+$/, '');
   const trailingZeros = digits.length - significant.length;
-  // Only exact positive 1/2 are admitted; decimal/exponent spelling is immaterial.
-  return significant === String(expected)
-    && BigInt(match[4] ?? '0') === BigInt(fraction.length - trailingZeros);
+  // Compare the exact positive count; decimal/exponent spelling is immaterial.
+  const expectedDigits = String(expected);
+  const expectedSignificant = expectedDigits.replace(/0+$/, '');
+  return significant === expectedSignificant
+    && BigInt(match[4] ?? '0') === BigInt(fraction.length - trailingZeros
+      + expectedDigits.length - expectedSignificant.length);
 }
 
 function presence(vector) {
@@ -127,7 +130,8 @@ function failureDiagnostic(failure) {
   }
   const fields = ['code', 'message', 'retryable', 'owner', 'stepId'];
   if (!fields.every(key => Object.hasOwn(failure, key)) || typeof failure.retryable !== 'boolean'
-      || typeof failure.message !== 'string' || failure.stepId !== 'A') return 'MALFORMED_FAILURE';
+      || typeof failure.message !== 'string' || typeof failure.code !== 'string'
+      || typeof failure.owner !== 'string' || failure.stepId !== 'A') return 'MALFORMED_FAILURE';
   if (!['BUSINESS_REJECTION', 'TRANSIENT'].includes(failure.code)) return 'UNKNOWN_FAILURE';
   return failure.owner !== 'local-invocation-shell' || failure.retryable !== (failure.code === 'TRANSIENT')
     ? 'FAILURE_POLICY_CONFLICT' : 'OK';
@@ -142,6 +146,14 @@ async function execute(vector, context) {
   const observations = [];
   const finish = () => context.capture ? {...state, observations} : state;
   const controller = new AbortController();
+  const coordinator = vector.retryOwner === 'coordinator-per-delivery';
+  const deliveries = vector.deliveries;
+  if ((!coordinator && !['local-invocation-shell', 'callee-invocation-shell'].includes(vector.retryOwner))
+      || !Number.isInteger(deliveries) || deliveries < 1 || deliveries > 2147483647
+      || (!coordinator && deliveries !== 1) || !exactConfigNumber(vector, 'deliveries', deliveries)) {
+    state.outcome = 'POLICY_CONFLICT';
+    return finish();
+  }
 
   async function stepA(value) {
     state.aAttempts++;
@@ -165,7 +177,7 @@ async function execute(vector, context) {
     return value * 2;
   }
 
-  for (let delivery = 0; delivery < vector.deliveries; delivery++) {
+  for (let delivery = 0; delivery < deliveries; delivery++) {
     state.callerAttempts++;
     for (let attempt = 0; attempt <= vector.retryLimit; attempt++) {
       try {
@@ -180,6 +192,10 @@ async function execute(vector, context) {
         state.outcome = 'COMPLETED';
         return finish();
       } catch (failure) {
+        if (controller.signal.aborted) {
+          state.outcome = 'CANCELLED';
+          return finish();
+        }
         // Validate before reading retry policy; malformed/unknown failures never retry.
         const diagnostic = failureDiagnostic(failure);
         if (diagnostic !== 'OK') {
@@ -187,7 +203,9 @@ async function execute(vector, context) {
           return finish();
         }
         if (!failure.retryable) {
-          equal(failure, corpus.failureShape, `executions/${vector.id}/failure`);
+          if (!Object.hasOwn(vector, 'failureEnvelope')) {
+            equal(failure, corpus.failureShape, `executions/${vector.id}/failure`);
+          }
           state.outcome = failure.code;
           return finish();
         }

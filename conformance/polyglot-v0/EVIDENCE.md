@@ -38,7 +38,7 @@ or a general mutation-score claim.
 Contracts baseline: `acf6bd2db310462d526695ec65a5479b2c7f134f`.
 Runtime evidence refresh: `60dce3e400f51656631230ab9fe910ecb9a6c972` (read-only; no runtime changes).
 Root documentation baseline: `c7d4fe20c439f698e3be24cd3d56c0cf5b5f5702`.
-Corpus SHA-256: `ad6643ee51fc8fd9585b78015054f07c87bb46d61a2b1c28072dde45fd069f32`.
+Corpus SHA-256: `3692182b25f5669fb4b2a14656c2618a06b946d5edf061a564809f37369c50f5`.
 
 Run the exact candidate commit containing this report. The runner prints the consumer results;
 the PR records its tested head. No Maven dependency, production source, published coordinate
@@ -60,12 +60,12 @@ Java reference check is separate from the eventual no-local-JVM native developer
 ## Results and review
 
 - Full canonical Maven `verify`: passed all ten modules on 6 November 2026 (23.429 seconds).
-- Revised consumer run after PR feedback: passed in Java, Node and Python
-  (246, 239 and 239 checks respectively). All 18 deliberate mutation runs failed at
-  their expected assertion identifiers, covering null/precision/retry answers, body
-  digest and invalid schema versions. Four runner regression tests passed, including
-  crash/wrong-assertion rejection and exact numeric fixture copying.
-  These counts describe the executed harness, not a coverage or parity score.
+- Hosted-review follow-up: the revised v0 corpus passed in Java, Node and Python
+  (254, 247 and 247 checks respectively). All 36 deliberate mutation runs failed at
+  their expected assertions. Added cases cover null failure fields and signature paths,
+  conflicting retry ownership, a cancellation before retry, and an injected terminal
+  failure. Four runner tests passed, including crash/wrong-assertion rejection and
+  exact numeric fixture copying.
 - Environment: OpenJDK 25.0.4.1, Node 26.8.2, Python 3.14.6 on macOS. CI records its own versions;
   this report does not claim an untested version matrix.
 - Companion documentation: 36 tests passed; VitePress build and Coffee Machine public-content
@@ -79,9 +79,10 @@ accepted a value outside Node's safe range. All three now reject it through a sh
 The same review also exposed Python's exponent formatting for small fixed-point decimals.
 Fixed-point scale is now retained, and common ASCII/full-string numeric grammar is checked
 against non-ASCII digits and a trailing newline instead of relying on host regex defaults.
-Independent final adequacy/source review: **READY for the bounded contract-proposal/probe PR**.
-The reviewer reproduced the revised three consumer results and 18 mutation rejections against the
-corpus digest above. This verdict does not qualify production or distributed execution.
+Independent review of the earlier corpus at `c3242fef` found the bounded proposal ready.
+That corpus (`ad6643ee51fc8fd9585b78015054f07c87bb46d61a2b1c28072dde45fd069f32`)
+had 246 Java checks, 239 each in Node and Python, and 18 mutation rejections. The
+current corpus includes the subsequent hosted-review fixes above.
 
 PR feedback added regression cases for Java-compatible Unicode path blankness,
 validated asynchronous failure envelopes, independent nested-value round trips,
@@ -93,9 +94,9 @@ versions or retry limits. Named check functions and comments explain these rules
 the README provides a concrete A/B walkthrough and distinguishes real calls from
 simulated remote histories. No production contract changed.
 
-GitNexus orientation/context/impact used the contracts index at the exact baseline. Its
-managed clone is a different Git repository from the isolated worktree: `detect_changes`
-rejects that worktree, and the new probe files are not indexed. No index rebuild was authorised
+The initial review used the contracts index at the exact baseline for GitNexus orientation and impact. Its
+managed clone was a different Git repository from the isolated worktree. `detect_changes`
+rejected that worktree, and the new probe files were not indexed. No index rebuild was authorised
 or performed. Accordingly, changed-symbol and PDG/taint coverage are **unavailable**, not zero
 impact. The automatic review gate uses disclosed source review and executable falsification
 for this surface. Root docs change analysis succeeded with its existing worktree index,

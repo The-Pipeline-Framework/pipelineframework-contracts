@@ -121,6 +121,23 @@ The expected check ID belongs to the consumer assertion, not the temporary filen
     changed["signature"]["bodySha256"] = "0" * 64
     yield "body-digest", "signature/bodySha256", changed
 
+    for row_id, invalid in (("null-code", "UNKNOWN_FAILURE"), ("null-owner", "FAILURE_POLICY_CONFLICT")):
+        changed = copy.deepcopy(original)
+        next(row for row in changed["failures"] if row["id"] == row_id)["diagnostic"] = invalid
+        yield row_id, f"failures/{row_id}", changed
+
+    for row_id, invalid in (("conflicting-retry-owner", "COMPLETED"),
+                            ("cancel-before-retry", "RETRY_EXHAUSTED"),
+                            ("injected-terminal-failure", "MALFORMED_FAILURE")):
+        changed = copy.deepcopy(original)
+        next(row for row in changed["executions"] if row["id"] == row_id)["expected"]["outcome"] = invalid
+        yield row_id, f"executions/{row_id}/outcome", changed
+
+    changed = copy.deepcopy(original)
+    row = next(row for row in changed["signaturePaths"] if row["id"] == "null")
+    row["preimage"] = row["preimage"].replace("\n/\n", "\n/null\n")
+    yield "null-signature-path", "signaturePaths/null/preimage", changed
+
     for name, invalid_version in (("boolean-version", True), ("fractional-version", 1.5)):
         changed = copy.deepcopy(original)
         changed["schemaVersion"] = invalid_version

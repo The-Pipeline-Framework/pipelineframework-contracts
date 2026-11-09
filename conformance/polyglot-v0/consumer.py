@@ -130,7 +130,8 @@ def failure_diagnostic(failure):
         return 'MALFORMED_FAILURE'
     fields = {'code', 'message', 'retryable', 'owner', 'stepId'}
     if (not fields <= failure.keys() or type(failure['retryable']) is not bool
-            or not isinstance(failure['message'], str) or failure['stepId'] != 'A'):
+            or not isinstance(failure['message'], str) or not isinstance(failure['code'], str)
+            or not isinstance(failure['owner'], str) or failure['stepId'] != 'A'):
         return 'MALFORMED_FAILURE'
     if failure['code'] not in ('BUSINESS_REJECTION', 'TRANSIENT'):
         return 'UNKNOWN_FAILURE'
@@ -158,6 +159,15 @@ async def execute(vector, context):
     def finish():
         return dict(state, observations=observations) if context.get('capture') else state
 
+    owner = vector.get('retryOwner')
+    coordinator = owner == 'coordinator-per-delivery'
+    deliveries = vector.get('deliveries')
+    if ((not coordinator and owner not in ('local-invocation-shell', 'callee-invocation-shell'))
+            or type(deliveries) not in (int, decimal.Decimal) or not 1 <= deliveries <= 2147483647
+            or (not coordinator and deliveries != 1) or deliveries != int(deliveries)):
+        state['outcome'] = 'POLICY_CONFLICT'
+        return finish()
+
     async def step_a(value):
         state['aAttempts'] += 1
         if vector.get('cancelDuringA'):
@@ -180,7 +190,7 @@ async def execute(vector, context):
         await asyncio.sleep(0)
         return value * 2
 
-    for _delivery in range(vector['deliveries']):
+    for _delivery in range(int(deliveries)):
         state['callerAttempts'] += 1
         for _attempt in range(vector['retryLimit'] + 1):
             try:
@@ -195,13 +205,17 @@ async def execute(vector, context):
                 state['outcome'] = 'COMPLETED'
                 return finish()
             except Failure as failure:
+                if cancelled.is_set():
+                    state['outcome'] = 'CANCELLED'
+                    return finish()
                 # Validate before reading policy: malformed/unknown failures never retry.
                 diagnostic = failure_diagnostic(failure.shape)
                 if diagnostic != 'OK':
                     state['outcome'] = diagnostic
                     return finish()
                 if not failure.shape['retryable']:
-                    equal(failure.shape, corpus['failureShape'], f"executions/{vector['id']}/failure")
+                    if 'failureEnvelope' not in vector:
+                        equal(failure.shape, corpus['failureShape'], f"executions/{vector['id']}/failure")
                     state['outcome'] = failure.shape['code']
                     return finish()
     return finish()
