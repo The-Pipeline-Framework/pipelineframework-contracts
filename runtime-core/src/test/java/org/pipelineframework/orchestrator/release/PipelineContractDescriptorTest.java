@@ -36,10 +36,45 @@ class PipelineContractDescriptorTest {
                 "composition",
                 "importedDefinitions",
                 "capabilityImports",
-                "httpPayloadBoundaries"),
+                "httpPayloadBoundaries",
+                "rootBoundary"),
             Arrays.stream(PipelineContractDescriptor.class.getRecordComponents())
                 .map(RecordComponent::getName)
                 .toList());
+    }
+
+    @Test
+    void canonicalRootBoundaryIsVersionedImmutableAndAbsentForLegacyConstructors() {
+        var fields = new LinkedHashMap<String, Object>(Map.of("schemaVersion", 1,
+            "inputCanonicalTypeId", "InputAlias", "outputCanonicalTypeId", "OutputAlias"));
+        var descriptor = withBoundary(fields);
+        fields.clear();
+        assertEquals("InputAlias", descriptor.rootBoundary().get("inputCanonicalTypeId"));
+        assertThrows(UnsupportedOperationException.class, () -> descriptor.rootBoundary().clear());
+        assertEquals(Map.of(), PipelineContractDescriptor.localFallback().rootBoundary());
+        assertEquals(Map.of(), withBoundary(null).rootBoundary());
+        var mutableVersion = new java.util.concurrent.atomic.AtomicInteger(1);
+        var normalized = withBoundary(Map.of("schemaVersion", mutableVersion, "inputCanonicalTypeId", "Input", "outputCanonicalTypeId", "Output"));
+        mutableVersion.set(2);
+        assertEquals(1, normalized.rootBoundary().get("schemaVersion"));
+        assertThrows(IllegalArgumentException.class, () -> new PipelineContractDescriptor(2, "example", "v", "hash", "COMPUTE", "LOCAL", "module", false,
+            "monolith", List.of(), PipelineBundleCapabilities.defaults(), Map.of(), "", PipelineCompositionDescriptor.empty(),
+            List.of(), List.of(), List.of(), normalized.rootBoundary()));
+        for (var invalid : List.<Map<String, Object>>of(
+            Map.of("schemaVersion", 2, "inputCanonicalTypeId", "Input", "outputCanonicalTypeId", "Output"),
+            Map.of("schemaVersion", 1.0d, "inputCanonicalTypeId", "Input", "outputCanonicalTypeId", "Output"),
+            Map.of("schemaVersion", new java.math.BigDecimal("1.0000000000000000001"), "inputCanonicalTypeId", "Input", "outputCanonicalTypeId", "Output"),
+            Map.of("schemaVersion", 1, "inputCanonicalTypeId", "Input", "outputCanonicalTypeId", "Output", "unrecognised", "field"),
+            Map.of("schemaVersion", 1, "inputCanonicalTypeId", " Input", "outputCanonicalTypeId", "Output"),
+            Map.of("schemaVersion", 1, "inputCanonicalTypeId", "Input"))) {
+            assertThrows(IllegalArgumentException.class, () -> withBoundary(invalid));
+        }
+    }
+
+    private static PipelineContractDescriptor withBoundary(Map<String, Object> boundary) {
+        return new PipelineContractDescriptor(3, "example", "v", "hash", "COMPUTE", "LOCAL", "module", false,
+            "monolith", List.of(), PipelineBundleCapabilities.defaults(), Map.of(), "", PipelineCompositionDescriptor.empty(),
+            List.of(), List.of(), List.of(), boundary);
     }
 
     @Test

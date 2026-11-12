@@ -25,8 +25,17 @@ public record ExecutionCreateCommand(
     int initialStepIndex,
     Optional<PagedExecutionState> pagingState,
     long nowEpochMs,
-    long ttlEpochS
+    long ttlEpochS,
+    Optional<ExecutionDispatchPin> dispatchPin
 ) {
+    /** Compatibility constructor for admissions without a retained dispatch selection. */
+    public ExecutionCreateCommand(String tenantId, String executionKey, String pipelineId, String contractVersion,
+        String releaseVersion, Object inputPayload, ExecutionResultShape resultShape, Optional<String> inputCanonicalTypeId,
+        int initialStepIndex, Optional<PagedExecutionState> pagingState, long nowEpochMs, long ttlEpochS) {
+        this(tenantId, executionKey, pipelineId, contractVersion, releaseVersion, inputPayload, resultShape,
+            inputCanonicalTypeId, initialStepIndex, pagingState, nowEpochMs, ttlEpochS, Optional.empty());
+    }
+
     public ExecutionCreateCommand(
         String tenantId,
         String executionKey,
@@ -146,6 +155,7 @@ public record ExecutionCreateCommand(
     }
 
     public ExecutionCreateCommand {
+        dispatchPin = Objects.requireNonNullElse(dispatchPin, Optional.empty());
         Objects.requireNonNull(tenantId, "ExecutionCreateCommand.tenantId must not be null");
         Objects.requireNonNull(executionKey, "ExecutionCreateCommand.executionKey must not be null");
         Objects.requireNonNull(pipelineId, "ExecutionCreateCommand.pipelineId must not be null");

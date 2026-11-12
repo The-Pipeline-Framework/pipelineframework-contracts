@@ -28,7 +28,8 @@ public record PipelineContractDescriptor(
     PipelineCompositionDescriptor composition,
     List<ImportedPipelineDefinitionDescriptor> importedDefinitions,
     List<Map<String, Object>> capabilityImports,
-    List<Map<String, Object>> httpPayloadBoundaries
+    List<Map<String, Object>> httpPayloadBoundaries,
+    Map<String, Object> rootBoundary
 ) {
     public static final int CURRENT_SCHEMA_VERSION = 3;
     public static final String RESOURCE_PATH = "META-INF/pipeline/pipeline-contract.json";
@@ -69,6 +70,24 @@ public record PipelineContractDescriptor(
                 return immutableMap(boundary);
             })
             .toList();
+        rootBoundary = rootBoundary == null ? Map.of() : Map.copyOf(rootBoundary);
+        if (!rootBoundary.isEmpty()) {
+            if (schemaVersion < 3 || !boundaryVersionOne(rootBoundary.get("schemaVersion"))) {
+                throw new IllegalArgumentException("rootBoundary requires contract schema 3 and boundary schema 1");
+            }
+            if (!rootBoundary.keySet().equals(java.util.Set.of("schemaVersion", "inputCanonicalTypeId", "outputCanonicalTypeId"))) {
+                throw new IllegalArgumentException("rootBoundary must contain only its version and canonical identities");
+            }
+            for (String field : List.of("inputCanonicalTypeId", "outputCanonicalTypeId")) {
+                if (!(rootBoundary.get(field) instanceof String value) || value.isBlank() || !value.equals(value.strip())) {
+                    throw new IllegalArgumentException("rootBoundary requires a canonical " + field);
+                }
+            }
+        }
+        if (!rootBoundary.isEmpty()) {
+            rootBoundary = Map.of("schemaVersion", 1, "inputCanonicalTypeId", rootBoundary.get("inputCanonicalTypeId"),
+                "outputCanonicalTypeId", rootBoundary.get("outputCanonicalTypeId"));
+        }
         if (schemaVersion < 3 && !httpPayloadBoundaries.isEmpty()) {
             throw new IllegalArgumentException("HTTP payload boundaries require contract schemaVersion 3");
         }
@@ -81,6 +100,30 @@ public record PipelineContractDescriptor(
         if (schemaVersion < 3 && !capabilityImports.isEmpty()) {
             throw new IllegalArgumentException("Capability imports require contract schemaVersion 3");
         }
+    }
+
+    private static boolean boundaryVersionOne(Object value) {
+        // Floating-point parsing may already have rounded an unsupported fractional version to one.
+        if (!(value instanceof Number number) || number instanceof Double || number instanceof Float) return false;
+        try {
+            return new java.math.BigDecimal(number.toString()).compareTo(java.math.BigDecimal.ONE) == 0;
+        } catch (NumberFormatException invalid) {
+            return false;
+        }
+    }
+
+    /** Compatibility constructor for contracts predating explicit canonical root boundaries. */
+    public PipelineContractDescriptor(
+        int schemaVersion, String pipelineId, String contractVersion, String contractHash,
+        String platform, String transport, String module, boolean pluginHost, String runtimeLayout,
+        List<PipelineBundleStepDescriptor> steps, PipelineBundleCapabilities capabilities,
+        Map<String, Map<String, Object>> canonicalTypes, String canonicalCatalogFingerprint,
+        PipelineCompositionDescriptor composition, List<ImportedPipelineDefinitionDescriptor> importedDefinitions,
+        List<Map<String, Object>> capabilityImports, List<Map<String, Object>> httpPayloadBoundaries
+    ) {
+        this(schemaVersion, pipelineId, contractVersion, contractHash, platform, transport, module, pluginHost,
+            runtimeLayout, steps, capabilities, canonicalTypes, canonicalCatalogFingerprint, composition,
+            importedDefinitions, capabilityImports, httpPayloadBoundaries, Map.of());
     }
 
     /** Binary/source compatibility for contracts created before HTTP payload metadata was retained. */
