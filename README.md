@@ -19,6 +19,12 @@ The published parent POM exists so artifact POMs remain resolvable; applications
 None of these artifacts loads a Quarkus or Spring runtime implementation. Runtime hosts, worker implementations,
 Connector/provider implementations, resolved credentials, and tenant policy belong in their owning integration repositories. Deployment wiring also stays outside this repository.
 
+The experimental `tpf-polyglot-int32-json/1` inner payload encoding lives in
+`pipelineframework-runtime-serialization`. Its JSON object has exactly one required, non-null `value` field.
+The value must be an integer token from −2147483648 through 2147483647. Decoding accepts JSON whitespace
+and JSON escapes in the field name and normalizes `-0` to zero. Encoding writes compact decimal JSON.
+The runtime binds the body to an expected compiler logical type and a separately selected worker envelope.
+
 Build with an isolated Maven repository:
 
 ```sh
