@@ -38,8 +38,30 @@ public record ExecutionRecord<I, R>(
     Optional<String> redriveTargetCommandId,
     Optional<String> redriveReason,
     Optional<PagedExecutionState> pagingState,
-    Optional<String> awaitOccurrenceCause
+    Optional<String> awaitOccurrenceCause,
+    Optional<ExecutionDispatchPin> dispatchPin
 ) {
+    /** Compatibility constructor for records predating retained dispatch selection. */
+    public ExecutionRecord(
+        String tenantId, String executionId, String executionKey, String pipelineId,
+        String contractVersion, String releaseVersion, ExecutionResultShape resultShape,
+        ExecutionStatus status, long version, int currentStepIndex, int attempt,
+        String leaseOwner, long leaseExpiresEpochMs, long nextDueEpochMs,
+        String lastTransitionKey, I inputPayload, String awaitUnitId, R resultPayload,
+        String errorCode, String errorMessage, long createdAtEpochMs, long updatedAtEpochMs,
+        long ttlEpochS, long firstCircuitDeferredAtEpochMs, int circuitDeferralCount,
+        String circuitIdentity, ExecutionRedriveIntent redriveIntent, int failedStepIndex,
+        Optional<String> failedCommandId, Optional<String> redriveTargetCommandId,
+        Optional<String> redriveReason, Optional<PagedExecutionState> pagingState, Optional<String> awaitOccurrenceCause
+    ) {
+        this(tenantId, executionId, executionKey, pipelineId, contractVersion, releaseVersion, resultShape,
+            status, version, currentStepIndex, attempt, leaseOwner, leaseExpiresEpochMs, nextDueEpochMs,
+            lastTransitionKey, inputPayload, awaitUnitId, resultPayload, errorCode, errorMessage,
+            createdAtEpochMs, updatedAtEpochMs, ttlEpochS, firstCircuitDeferredAtEpochMs, circuitDeferralCount,
+            circuitIdentity, redriveIntent, failedStepIndex, failedCommandId, redriveTargetCommandId,
+            redriveReason, pagingState, awaitOccurrenceCause, Optional.empty());
+    }
+
     /** Compatibility constructor for records predating Await occurrence fencing. */
     public ExecutionRecord(
         String tenantId, String executionId, String executionKey, String pipelineId,
@@ -82,6 +104,7 @@ public record ExecutionRecord<I, R>(
     }
 
     public ExecutionRecord {
+        dispatchPin = java.util.Objects.requireNonNullElse(dispatchPin, Optional.empty());
         redriveIntent = redriveIntent == null ? ExecutionRedriveIntent.REPLAY : redriveIntent;
         failedCommandId = Optional.ofNullable(failedCommandId).orElseGet(Optional::empty);
         redriveTargetCommandId = Optional.ofNullable(redriveTargetCommandId).orElseGet(Optional::empty);
@@ -433,7 +456,7 @@ public record ExecutionRecord<I, R>(
             redriveTargetCommandId,
             redriveReason,
             pagingState,
-            awaitOccurrenceCause);
+            awaitOccurrenceCause, dispatchPin);
     }
 
     public ExecutionRecord<I, R> withAwaitOccurrenceCause(Optional<String> cause) {
@@ -442,6 +465,6 @@ public record ExecutionRecord<I, R>(
             leaseExpiresEpochMs, nextDueEpochMs, lastTransitionKey, inputPayload, awaitUnitId,
             resultPayload, errorCode, errorMessage, createdAtEpochMs, updatedAtEpochMs, ttlEpochS,
             firstCircuitDeferredAtEpochMs, circuitDeferralCount, circuitIdentity, redriveIntent,
-            failedStepIndex, failedCommandId, redriveTargetCommandId, redriveReason, pagingState, cause);
+            failedStepIndex, failedCommandId, redriveTargetCommandId, redriveReason, pagingState, cause, dispatchPin);
     }
 }

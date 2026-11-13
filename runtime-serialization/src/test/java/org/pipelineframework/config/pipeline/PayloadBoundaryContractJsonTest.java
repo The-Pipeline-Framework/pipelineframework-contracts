@@ -26,6 +26,16 @@ class PayloadBoundaryContractJsonTest {
         assertEquals(1,restored.get("httpPayloadBoundaries").size());
         assertEquals("DELEGATED_S3",restored.at("/httpPayloadBoundaries/0/transfer").asText());
     }
+    @Test void retainsExplicitRootBoundaryWithoutChangingLegacyWireShape() throws Exception {
+        var original = (com.fasterxml.jackson.databind.node.ObjectNode) PipelineJson.mapper().readTree(fixture());
+        original.put("schemaVersion", 3);
+        var boundary = original.putObject("rootBoundary");
+        boundary.put("schemaVersion", 1);
+        boundary.put("inputCanonicalTypeId", "InputAlias");
+        boundary.put("outputCanonicalTypeId", "OutputAlias");
+        var descriptor = PipelineJson.mapper().treeToValue(original, PipelineContractDescriptor.class);
+        assertEquals(boundary, PipelineJson.mapper().valueToTree(descriptor).get("rootBoundary"));
+    }
     @Test void stillRejectsUnknownContractFields() throws Exception {
         var original=(com.fasterxml.jackson.databind.node.ObjectNode)PipelineJson.mapper().readTree(fixture());
         // This keeps the negative independent of the missing known-boundary field.
@@ -39,6 +49,9 @@ class PayloadBoundaryContractJsonTest {
         assertEquals(legacy.get("contractHash").asText(),descriptor.contractHash());
         assertEquals(legacy.get("contractVersion").asText(),descriptor.contractVersion());
         assertTrue(descriptor.httpPayloadBoundaries().isEmpty());
+        assertTrue(descriptor.rootBoundary().isEmpty());
+        assertFalse(PipelineJson.mapper().valueToTree(descriptor).has("rootBoundary"),
+            "absent root boundaries must not alter retained Release fingerprints");
         assertFalse(PipelineJson.mapper().valueToTree(descriptor).has("httpPayloadBoundaries"),
             "legacy wire output must not introduce a field that strict older readers do not know");
     }

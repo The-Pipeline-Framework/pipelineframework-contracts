@@ -8,6 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class AwaitCompletionStoreContractTest {
     @Test
+    void fencedCompletionRequiresAnAtomicProviderOperation() throws Exception {
+        assertFalse(org.pipelineframework.awaitable.spi.FencedAwaitInteractionStore.class
+            .getMethod("complete", AwaitInteractionRecord.class, AwaitCompletionCommand.class).isDefault());
+    }
+
+    @Test
     void completionAndReleaseObservationsRequireProviderImplementationsWithoutSequencedFallbacks() throws Exception {
         assertFalse(AwaitInteractionStore.class.getMethod("getCompletionAdmission", String.class, String.class).isDefault());
         assertFalse(AwaitInteractionStore.class.getMethod("findOpenCompletions", String.class, int.class, Optional.class).isDefault());

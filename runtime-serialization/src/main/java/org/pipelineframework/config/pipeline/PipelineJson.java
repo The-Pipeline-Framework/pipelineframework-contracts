@@ -84,6 +84,9 @@ public final class PipelineJson {
     private abstract static class PipelineContractDescriptorMixin {
         @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
         abstract java.util.List<java.util.Map<String, Object>> httpPayloadBoundaries();
+
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+        abstract java.util.Map<String, Object> rootBoundary();
     }
 
     private abstract static class ConnectorProviderIdMixin {
