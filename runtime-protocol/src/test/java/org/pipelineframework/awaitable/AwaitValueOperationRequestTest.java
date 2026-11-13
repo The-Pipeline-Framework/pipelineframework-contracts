@@ -29,6 +29,14 @@ class AwaitValueOperationRequestTest {
         }
     }
 
+    @Test void rejectsUnpairedSurrogatesInsteadOfHashingReplacementBytes() {
+        for (char surrogate : new char[] { (char) 0xd800, (char) 0xd801 }) {
+            var malformed = new SerializedTransitionPayload("canonical", "json", String.valueOf(surrogate));
+            assertThrows(IllegalArgumentException.class,
+                () -> request("tenant", "release", 3, malformed).requestDigest());
+        }
+    }
+
     private static AwaitValueOperationRequest request(String tenant, String release, long version,
         SerializedTransitionPayload value) {
         return new AwaitValueOperationRequest(AwaitValueOperation.NORMALIZE_AND_PROJECT_COMPLETION,
