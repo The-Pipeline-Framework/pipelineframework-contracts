@@ -1,6 +1,5 @@
 package org.pipelineframework.awaitable;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.pipelineframework.invocation.PipelineInvocationPath;
@@ -10,7 +9,7 @@ import org.pipelineframework.orchestrator.SerializedTransitionPayload;
 public record AwaitRegistrationRequest(AwaitTransitionScope scope, String stepId, int stepIndex,
     String identityScope, String unitId, String causationId, Optional<Integer> itemIndex,
     SerializedTransitionPayload canonicalRequest, Optional<String> assignee, Optional<String> group,
-    Optional<PipelineInvocationPath> invocationPath, Map<String, Object> traceMetadata) {
+    Optional<PipelineInvocationPath> invocationPath) {
     public AwaitRegistrationRequest {
         Objects.requireNonNull(scope, "scope");
         for (String value : new String[] {stepId, identityScope, unitId, causationId}) {
@@ -24,6 +23,5 @@ public record AwaitRegistrationRequest(AwaitTransitionScope scope, String stepId
         Objects.requireNonNull(assignee, "assignee");
         Objects.requireNonNull(group, "group");
         Objects.requireNonNull(invocationPath, "invocationPath").ifPresent(PipelineInvocationPath::requireResumable);
-        traceMetadata = Map.copyOf(Objects.requireNonNull(traceMetadata, "traceMetadata"));
     }
 }

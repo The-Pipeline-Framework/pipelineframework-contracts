@@ -61,66 +61,12 @@ public record AwaitValueOperationRequest(
         acknowledgementPayload = Objects.requireNonNull(acknowledgementPayload, "acknowledgementPayload");
         completionPayload = Objects.requireNonNull(completionPayload, "completionPayload");
         actor = Objects.requireNonNull(actor, "actor");
-        switch (operation) {
-            case NORMALIZE_ACKNOWLEDGEMENT -> {
-                if (acknowledgementPayload.isEmpty()) throw new IllegalArgumentException("Acknowledgement is required");
-            }
-            case NORMALIZE_COMPLETION -> {
-                if (completionPayload.isEmpty()) throw new IllegalArgumentException("Completion is required");
-            }
-            case PROJECT_COMPLETION, NORMALIZE_AND_PROJECT_COMPLETION -> {
-                if (requestPayload.isEmpty() || completionPayload.isEmpty()) {
-                    throw new IllegalArgumentException("Request and completion are required for projection");
-                }
-            }
-        }
+        operation.validateEvidence(requestPayload.isPresent(), acknowledgementPayload.isPresent(), completionPayload.isPresent());
     }
 
-    /** SHA-256 of versioned, length-prefixed UTF-8 fields in declaration order. */
+    /** Binds a result to every field of this request. */
     public String requestDigest() {
-        try {
-            var bytes = new java.io.ByteArrayOutputStream();
-            var out = new java.io.DataOutputStream(bytes);
-            for (String field : new String[] { "tpf-await-value-operation-v1", operation.name(), operationId,
-                tenantId, executionId, interactionId, unitId, stepId, Long.toString(expectedInteractionVersion),
-                pipelineId, contractVersion, releaseVersion }) write(out, field);
-            writeOptional(out, completionProjectorId);
-            writeOptional(out, callbackContractFingerprint);
-            writePayload(out, requestPayload);
-            writePayload(out, acknowledgementPayload);
-            writePayload(out, completionPayload);
-            write(out, actor);
-            write(out, Long.toString(admittedAtEpochMs));
-            return "sha256:" + java.util.HexFormat.of().formatHex(
-                java.security.MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray()));
-        } catch (java.nio.charset.CharacterCodingException failure) {
-            throw new IllegalArgumentException("Await value operation contains malformed Unicode", failure);
-        } catch (java.io.IOException | java.security.NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("Unable to fingerprint Await value operation", failure);
-        }
-    }
-
-    private static void writePayload(java.io.DataOutputStream out, Optional<SerializedTransitionPayload> payload)
-        throws java.io.IOException {
-        out.writeBoolean(payload.isPresent());
-        if (payload.isPresent()) {
-            write(out, payload.orElseThrow().payloadTypeId());
-            write(out, payload.orElseThrow().payloadEncoding());
-            write(out, payload.orElseThrow().payload());
-        }
-    }
-
-    private static void writeOptional(java.io.DataOutputStream out, Optional<String> value)
-        throws java.io.IOException {
-        out.writeBoolean(value.isPresent());
-        if (value.isPresent()) write(out, value.orElseThrow());
-    }
-
-    private static void write(java.io.DataOutputStream out, String value) throws java.io.IOException {
-        var bytes = java.nio.charset.StandardCharsets.UTF_8.newEncoder()
-            .encode(java.nio.CharBuffer.wrap(value));
-        out.writeInt(bytes.remaining());
-        out.write(bytes.array(), bytes.arrayOffset() + bytes.position(), bytes.remaining());
+        return AwaitValueOperationFingerprint.of(this);
     }
 
     private static Optional<String> optionalIdentity(Optional<String> value, String name) {

@@ -155,25 +155,6 @@ public interface AwaitInteractionStore {
      */
     Uni<AwaitCompletionResult> complete(AwaitCompletionCommand command);
 
-    /** Whether this store can atomically fence completion against the snapshot used for projection. */
-    default boolean supportsFencedCompletion() {
-        return false;
-    }
-
-    /**
-     * Completes only the exact interaction snapshot used to calculate a canonical completion.
-     * The command must carry the expected tenant and resolved interaction identifier.
-     * An empty result signals a version, status or immutable-owner conflict; callers must
-     * reread and revalidate before recalculating projection. Implementations must not retry
-     * against a newer snapshot using the old projected payload. Matching terminal snapshots
-     * retain the ordinary completion API's duplicate and rejection semantics.
-     * Unsupported stores fail closed rather than emulate a non-atomic read/check/write.
-     */
-    default Uni<Optional<AwaitCompletionResult>> complete(
-        AwaitInteractionRecord expected, AwaitCompletionCommand command) {
-        return Uni.createFrom().failure(new UnsupportedOperationException("Store does not support fenced completion"));
-    }
-
     /**
      * Strongly reads the immutable first admission for the scoped interaction, including after
      * its open projection was retired. Empty means no retained admission was observed, not that

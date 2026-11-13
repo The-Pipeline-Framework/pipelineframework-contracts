@@ -8,13 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class AwaitCompletionStoreContractTest {
     @Test
-    void fencedCompletionDefaultsFailClosed() {
-        AwaitInteractionStore store = (AwaitInteractionStore) java.lang.reflect.Proxy.newProxyInstance(
-            AwaitInteractionStore.class.getClassLoader(), new Class<?>[] {AwaitInteractionStore.class},
-            (proxy, method, args) -> java.lang.reflect.InvocationHandler.invokeDefault(proxy, method, args));
-        assertFalse(store.supportsFencedCompletion());
-        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
-            () -> store.complete(null, null).await().indefinitely());
+    void fencedCompletionRequiresAnAtomicProviderOperation() throws Exception {
+        assertFalse(org.pipelineframework.awaitable.spi.FencedAwaitInteractionStore.class
+            .getMethod("complete", AwaitInteractionRecord.class, AwaitCompletionCommand.class).isDefault());
     }
 
     @Test

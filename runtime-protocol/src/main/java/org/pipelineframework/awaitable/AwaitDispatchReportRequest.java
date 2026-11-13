@@ -28,20 +28,6 @@ public record AwaitDispatchReportRequest(String workerId, String entryId, AwaitT
         for (String key : transportMetadata.keySet()) {
             if (key.startsWith("tpf.") || reserved.contains(key)) throw new IllegalArgumentException("Dispatch metadata must not override Coordinator authority");
         }
-        switch (kind) {
-            case DISPATCHED -> {
-                if (failureMessage.isPresent() || settlement.isPresent() || acknowledgement.isPresent()) throw new IllegalArgumentException("Dispatched report contains unrelated evidence");
-            }
-            case FAILED -> {
-                if (failureMessage.isEmpty() || failureMessage.orElseThrow().isBlank() || settlement.isPresent()
-                    || acknowledgement.isPresent() || !transportMetadata.isEmpty()) throw new IllegalArgumentException("Definite failure requires only its failure message");
-            }
-            case COMMAND_SETTLEMENT -> {
-                if (settlement.isEmpty() || failureMessage.isPresent() || !transportMetadata.isEmpty()
-                    || acknowledgement.isPresent() && settlement.orElseThrow() != CommandDispatchSettlement.SUCCEEDED) {
-                    throw new IllegalArgumentException("Command settlement evidence is inconsistent");
-                }
-            }
-        }
+        kind.validateEvidence(transportMetadata, failureMessage, settlement, acknowledgement.isPresent());
     }
 }
