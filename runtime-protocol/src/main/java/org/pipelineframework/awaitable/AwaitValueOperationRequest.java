@@ -93,6 +93,8 @@ public record AwaitValueOperationRequest(
             write(out, Long.toString(admittedAtEpochMs));
             return "sha256:" + java.util.HexFormat.of().formatHex(
                 java.security.MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray()));
+        } catch (java.nio.charset.CharacterCodingException failure) {
+            throw new IllegalArgumentException("Await value operation contains malformed Unicode", failure);
         } catch (java.io.IOException | java.security.NoSuchAlgorithmException failure) {
             throw new IllegalStateException("Unable to fingerprint Await value operation", failure);
         }
@@ -115,9 +117,10 @@ public record AwaitValueOperationRequest(
     }
 
     private static void write(java.io.DataOutputStream out, String value) throws java.io.IOException {
-        byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        out.writeInt(bytes.length);
-        out.write(bytes);
+        var bytes = java.nio.charset.StandardCharsets.UTF_8.newEncoder()
+            .encode(java.nio.CharBuffer.wrap(value));
+        out.writeInt(bytes.remaining());
+        out.write(bytes.array(), bytes.arrayOffset() + bytes.position(), bytes.remaining());
     }
 
     private static Optional<String> optionalIdentity(Optional<String> value, String name) {
