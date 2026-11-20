@@ -117,7 +117,10 @@ public final class PipelineReleaseDescriptorValidator {
                 throw new IllegalArgumentException("Every executable artifact requires a physical entry");
         }
         var check = deployment.check();
-        if (check == null || !entryIds.contains(check.entryId())) throw new IllegalArgumentException("Execution check must reference an entry");
+        // Physical packaging does not imply a deterministic application execution canary.
+        // A delivery profile may still require one as part of its own support contract.
+        if (check == null) return;
+        if (!entryIds.contains(check.entryId())) throw new IllegalArgumentException("Execution check must reference an entry");
         if (check.timeoutMillis() <= 0 || check.timeoutMillis() > 600_000) throw new IllegalArgumentException("Execution check timeout must be bounded to 600 seconds");
         validatePayload(check.input());
         validatePayload(check.expectedResult());

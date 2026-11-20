@@ -64,6 +64,28 @@ class HostedReleaseContractTest {
             new PipelineReleaseDeployment(valid.profile(), valid.entries(), valid.bindings(), wrongCheck))));
     }
 
+    @Test void acceptsPhysicalDeploymentWithoutAnApplicationExecutionCanary() {
+        var original = deployment("app", "lib/application.jar");
+        var withoutCanary = new PipelineReleaseDeployment("independent-worker", original.entries(), original.bindings(), null);
+        assertDoesNotThrow(() -> validator.validate(release(withoutCanary), contract()));
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(release(
+            new PipelineReleaseDeployment(withoutCanary.profile(), withoutCanary.entries(), List.of(), null))));
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(release(
+            new PipelineReleaseDeployment(withoutCanary.profile(), List.of(), withoutCanary.bindings(), null))));
+    }
+
+    @Test void optionalCanaryStillRequiresBoundedValidPayloadsWhenDeclared() {
+        var original = deployment("app", "lib/application.jar");
+        for (var invalid : List.of(
+            new PipelineReleaseDeployment.Check("http", payload("x"), payload("y"), 0),
+            new PipelineReleaseDeployment.Check("http", payload("x"), payload("y"), 600_001),
+            new PipelineReleaseDeployment.Check("http", Map.of(), payload("y"), 1000),
+            new PipelineReleaseDeployment.Check("http", payload("x"), Map.of(), 1000))) {
+            assertThrows(IllegalArgumentException.class, () -> validator.validate(release(
+                new PipelineReleaseDeployment(original.profile(), original.entries(), original.bindings(), invalid))));
+        }
+    }
+
     /** Matching one-step semantic contract used independently of physical entry count. */
     static PipelineContractDescriptor contract() {
         return new PipelineContractDescriptor(1, "sample", "contract", "hash", "FUNCTION", "REST", "app", false, "monolith",

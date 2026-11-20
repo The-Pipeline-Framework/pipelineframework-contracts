@@ -3,7 +3,10 @@ package org.pipelineframework.orchestrator.release;
 import java.util.List;
 import java.util.Map;
 
-/** Physical packaging facts in the immutable Release, never environment values or a semantic step graph. */
+/** Physical packaging facts in the immutable Release, never environment values or a semantic step graph.
+ * The application execution canary is optional here; a delivery profile may require it.
+ * Readers predating optional canaries reject a deployment without one.
+ */
 public record PipelineReleaseDeployment(String profile, List<Entry> entries, List<Binding> bindings, Check check) {
     /** Snapshots physical entries and logical resource requirements without binding environment values. */
     public PipelineReleaseDeployment {
@@ -29,7 +32,9 @@ public record PipelineReleaseDeployment(String profile, List<Entry> entries, Lis
     /** Logical requirement; authorization and resource/secret values belong to the deployment environment. */
     public record Binding(String bindingId, String capability) {}
 
-    /** Payload maps use the existing SerializedTransitionPayload wire envelope. Core does not depend on protocol. */
+    /** Optional application execution canary, distinct from runtime identity or protocol readiness.
+     * Payload maps use the existing SerializedTransitionPayload wire envelope. Core does not depend on protocol.
+     */
     public record Check(String entryId, Map<String,String> input, Map<String,String> expectedResult, long timeoutMillis) {
         /** Snapshots the declared input/result envelopes without running the readiness check. */
         public Check {
