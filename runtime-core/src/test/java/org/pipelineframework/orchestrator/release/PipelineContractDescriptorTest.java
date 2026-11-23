@@ -37,7 +37,8 @@ class PipelineContractDescriptorTest {
                 "importedDefinitions",
                 "capabilityImports",
                 "httpPayloadBoundaries",
-                "rootBoundary"),
+                "rootBoundary",
+                "placement"),
             Arrays.stream(PipelineContractDescriptor.class.getRecordComponents())
                 .map(RecordComponent::getName)
                 .toList());

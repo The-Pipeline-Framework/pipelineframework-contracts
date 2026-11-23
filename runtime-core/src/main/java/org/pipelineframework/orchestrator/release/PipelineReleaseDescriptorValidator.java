@@ -153,10 +153,27 @@ public final class PipelineReleaseDescriptorValidator {
             throw new IllegalArgumentException("Release descriptor contractVersion does not match Pipeline Contract");
         }
         if (descriptor.deployment() != null) {
+            Set<String> placementModules = contract.placement().present()
+                ? contract.placement().deployedModules()
+                : Set.of();
+            Set<String> entryModules = new LinkedHashSet<>();
             for (var entry : descriptor.deployment().entries()) {
-                if (!entry.runtimeId().equals(contract.module())) {
+                entryModules.add(entry.runtimeId());
+                if (!placementModules.isEmpty()) {
+                    if (!placementModules.contains(entry.runtimeId())) {
+                        throw new IllegalArgumentException(
+                            "Entry runtimeId '" + entry.runtimeId()
+                                + "' does not match any module in compiled placement " + placementModules);
+                    }
+                } else if (!entry.runtimeId().equals(contract.module())) {
                     throw new IllegalArgumentException("Entry runtimeId must reference the compiled module identity: " + contract.module());
                 }
+            }
+            if (!placementModules.isEmpty() && !entryModules.containsAll(placementModules)) {
+                Set<String> uncovered = new LinkedHashSet<>(placementModules);
+                uncovered.removeAll(entryModules);
+                throw new IllegalArgumentException(
+                    "Release deployment entries do not cover compiled placement modules " + uncovered);
             }
         }
         if (contract.steps() == null || contract.steps().isEmpty()) {
