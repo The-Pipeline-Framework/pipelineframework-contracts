@@ -29,7 +29,8 @@ public record PipelineContractDescriptor(
     List<ImportedPipelineDefinitionDescriptor> importedDefinitions,
     List<Map<String, Object>> capabilityImports,
     List<Map<String, Object>> httpPayloadBoundaries,
-    Map<String, Object> rootBoundary
+    Map<String, Object> rootBoundary,
+    PipelinePlacementDescriptor placement
 ) {
     public static final int CURRENT_SCHEMA_VERSION = 3;
     public static final String RESOURCE_PATH = "META-INF/pipeline/pipeline-contract.json";
@@ -88,6 +89,10 @@ public record PipelineContractDescriptor(
             rootBoundary = Map.of("schemaVersion", 1, "inputCanonicalTypeId", rootBoundary.get("inputCanonicalTypeId"),
                 "outputCanonicalTypeId", rootBoundary.get("outputCanonicalTypeId"));
         }
+        placement = placement == null ? PipelinePlacementDescriptor.empty() : placement;
+        if (schemaVersion < 3 && placement.present()) {
+            throw new IllegalArgumentException("Pipeline placement requires contract schemaVersion 3");
+        }
         if (schemaVersion < 3 && !httpPayloadBoundaries.isEmpty()) {
             throw new IllegalArgumentException("HTTP payload boundaries require contract schemaVersion 3");
         }
@@ -112,6 +117,22 @@ public record PipelineContractDescriptor(
         }
     }
 
+    /** Compatibility constructor for contracts predating compiled placement metadata. */
+    public PipelineContractDescriptor(
+        int schemaVersion, String pipelineId, String contractVersion, String contractHash,
+        String platform, String transport, String module, boolean pluginHost, String runtimeLayout,
+        List<PipelineBundleStepDescriptor> steps, PipelineBundleCapabilities capabilities,
+        Map<String, Map<String, Object>> canonicalTypes, String canonicalCatalogFingerprint,
+        PipelineCompositionDescriptor composition, List<ImportedPipelineDefinitionDescriptor> importedDefinitions,
+        List<Map<String, Object>> capabilityImports, List<Map<String, Object>> httpPayloadBoundaries,
+        Map<String, Object> rootBoundary
+    ) {
+        this(schemaVersion, pipelineId, contractVersion, contractHash, platform, transport, module, pluginHost,
+            runtimeLayout, steps, capabilities, canonicalTypes, canonicalCatalogFingerprint, composition,
+            importedDefinitions, capabilityImports, httpPayloadBoundaries, rootBoundary,
+            PipelinePlacementDescriptor.empty());
+    }
+
     /** Compatibility constructor for contracts predating explicit canonical root boundaries. */
     public PipelineContractDescriptor(
         int schemaVersion, String pipelineId, String contractVersion, String contractHash,
@@ -123,7 +144,8 @@ public record PipelineContractDescriptor(
     ) {
         this(schemaVersion, pipelineId, contractVersion, contractHash, platform, transport, module, pluginHost,
             runtimeLayout, steps, capabilities, canonicalTypes, canonicalCatalogFingerprint, composition,
-            importedDefinitions, capabilityImports, httpPayloadBoundaries, Map.of());
+            importedDefinitions, capabilityImports, httpPayloadBoundaries, Map.of(),
+            PipelinePlacementDescriptor.empty());
     }
 
     /** Binary/source compatibility for contracts created before HTTP payload metadata was retained. */

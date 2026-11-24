@@ -87,6 +87,25 @@ public final class PipelineJson {
 
         @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
         abstract java.util.Map<String, Object> rootBoundary();
+
+        @com.fasterxml.jackson.annotation.JsonInclude(
+            value = com.fasterxml.jackson.annotation.JsonInclude.Include.CUSTOM,
+            valueFilter = EmptyPlacementFilter.class)
+        abstract org.pipelineframework.orchestrator.release.PipelinePlacementDescriptor placement();
+    }
+
+    private static final class EmptyPlacementFilter {
+        @Override
+        public boolean equals(Object other) {
+            return other == null
+                || (other instanceof org.pipelineframework.orchestrator.release.PipelinePlacementDescriptor placement
+                    && !placement.present());
+        }
+
+        @Override
+        public int hashCode() {
+            return 0;
+        }
     }
 
     private abstract static class ConnectorProviderIdMixin {

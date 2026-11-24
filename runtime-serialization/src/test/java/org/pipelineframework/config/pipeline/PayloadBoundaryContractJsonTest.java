@@ -54,5 +54,36 @@ class PayloadBoundaryContractJsonTest {
             "absent root boundaries must not alter retained Release fingerprints");
         assertFalse(PipelineJson.mapper().valueToTree(descriptor).has("httpPayloadBoundaries"),
             "legacy wire output must not introduce a field that strict older readers do not know");
+        assertFalse(PipelineJson.mapper().valueToTree(descriptor).has("placement"),
+            "absent placement metadata must not alter retained Release fingerprints");
+    }
+
+    @Test void retainsExplicitPlacementWithoutChangingLegacyWireShape() throws Exception {
+        var original = (com.fasterxml.jackson.databind.node.ObjectNode) PipelineJson.mapper().readTree(fixture());
+        original.put("schemaVersion", 3);
+        var placement = original.putObject("placement");
+        placement.put("schemaVersion", 1);
+        var invocations = placement.putArray("invocations");
+        invocations.addObject()
+            .put("callerDefinitionId", "$root")
+            .put("callsiteId", "Review")
+            .put("targetDefinitionId", "review")
+            .put("recursive", false)
+            .put("locality", "LOCAL_IN_SEGMENT")
+            .put("module", "app")
+            .put("runtimeId", "application");
+        var segments = placement.putArray("executionSegments");
+        var entry = segments.addObject();
+        entry.put("segmentId", "entry");
+        entry.put("startKind", "ROOT_ENTRY");
+        entry.put("resumeAwaitBoundaryId", "");
+        entry.put("module", "app");
+        entry.put("runtimeId", "application");
+        entry.put("canCompleteRoot", true);
+        entry.putArray("reachableDefinitions").add("$root").add("review");
+        entry.putArray("nextAwaitBoundaries");
+        var descriptor = PipelineJson.mapper().treeToValue(original, PipelineContractDescriptor.class);
+        assertTrue(descriptor.placement().present());
+        assertEquals(placement, PipelineJson.mapper().valueToTree(descriptor).get("placement"));
     }
 }
